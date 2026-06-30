@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="page-title" style="margin-bottom: 2rem;">
+    <h1 style="margin:0;">Settings</h1>
+    <button class="button primary" onclick="saveSettings()" id="save-btn">Save Preferences</button>
+  </div>
+  
+  <div class="settings-grid" style="display: grid; grid-template-columns: 250px 1fr; gap: 2rem;">
+    <!-- Sidebar -->
+    <aside style="border-right: 1px solid var(--line); padding-right: 1rem;">
+      <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 10px;">
+        <li><a href="#ai" class="settings-link active" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600; color: var(--accent);">AI Pipeline</a></li>
+        <li><a href="#upload" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Upload Behavior</a></li>
+        <li><a href="#interface" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Interface</a></li>
+        <li><a href="#metadata" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Metadata</a></li>
+        <li><a href="#performance" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Performance & Advanced</a></li>
+      </ul>
+    </aside>
+
+    <!-- Content -->
+    <div class="settings-content" id="settings-form">
+      <!-- AI Section -->
+      <div id="ai" class="settings-section">
+        <h2>AI Pipeline</h2>
+        <div class="form">
+          <label class="check">
+            <input type="checkbox" id="set-ai-enabled" checked> Enable automatic AI analysis globally
+          </label>
+          <label class="check">
+            <input type="checkbox" id="set-ai-skip-default"> Skip AI by default on uploads
+          </label>
+          <label>Preferred Vision Model
+            <select id="set-ai-model">
+              <option value="qwen2-5-vl">Qwen2.5-VL (Local)</option>
+              <option value="llava">LLaVA (Local)</option>
+            </select>
+          </label>
+          <label>AI Confidence Threshold (0.0 - 1.0)
+            <input type="number" step="0.1" id="set-ai-confidence" value="0.75" class="input">
+          </label>
+          <label class="check"><input type="checkbox" id="set-ai-auto-tags" checked> Auto-generate Tags</label>
+          <label class="check"><input type="checkbox" id="set-ai-auto-caption" checked> Auto-generate Captions</label>
+          <label class="check"><input type="checkbox" id="set-ai-ocr" checked> Enable Document OCR</label>
+          <label class="check"><input type="checkbox" id="set-ai-objects" checked> Enable Object Detection</label>
+        </div>
+      </div>
+
+      <!-- Upload Section -->
+      <div id="upload" class="settings-section" style="display: none;">
+        <h2>Upload Behavior</h2>
+        <div class="form">
+          <label>Maximum Concurrent Uploads
+            <input type="number" id="set-up-concurrent" value="5" class="input">
+          </label>
+          <label class="check"><input type="checkbox" id="set-up-compress" checked> Compress images before upload</label>
+          <label class="check"><input type="checkbox" id="set-up-preserve-exif" checked> Preserve Original EXIF Metadata</label>
+        </div>
+      </div>
+      
+      <!-- Interface Section -->
+      <div id="interface" class="settings-section" style="display: none;">
+        <h2>Interface</h2>
+        <div class="form">
+          <label>Default View Mode
+            <select id="set-ui-view">
+              <option value="grid">Grid</option>
+              <option value="list">List</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="set-ui-animations" checked> Enable UI Animations</label>
+        </div>
+      </div>
+      
+      <!-- Metadata Section -->
+      <div id="metadata" class="settings-section" style="display: none;">
+        <h2>Metadata</h2>
+        <div class="form">
+          <label>Default Category/Album
+            <input type="text" id="set-meta-category" class="input" placeholder="e.g. Uncategorized">
+          </label>
+          <label class="check"><input type="checkbox" id="set-meta-merge-tags" checked> Merge AI tags with user tags</label>
+          <label class="check"><input type="checkbox" id="set-meta-preserve-desc" checked> Preserve user descriptions</label>
+        </div>
+      </div>
+      
+      <!-- Performance Section -->
+      <div id="performance" class="settings-section" style="display: none;">
+        <h2>Performance & Advanced</h2>
+        <div class="form">
+          <label>Number of AI Background Workers
+            <input type="number" id="set-perf-workers" value="2" class="input">
+          </label>
+          <label class="check"><input type="checkbox" id="set-perf-gpu" checked> Enable GPU Acceleration</label>
+          <label class="check"><input type="checkbox" id="set-perf-debug"> Enable Debug Logging</label>
+          
+          <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--line);">
+            <button class="button secondary danger" type="button" onclick="alert('Cache cleared.')">Clear AI Cache</button>
+            <button class="button secondary danger" type="button" onclick="alert('Index rebuilt.')" style="margin-left: 10px;">Rebuild Search Index</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+  // Tab Switching logic
+  document.querySelectorAll('.settings-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      document.querySelectorAll('.settings-link').forEach(l => {
+        l.classList.remove('active');
+        l.style.color = 'inherit';
+      });
+      document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
+      
+      e.target.classList.add('active');
+      e.target.style.color = 'var(--accent)';
+      document.querySelector(e.target.getAttribute('href')).style.display = 'block';
+    });
+  });
+
+  // Load existing settings
+  const userSettings = {{ settings|tojson|safe }};
+  for (const [key, val] of Object.entries(userSettings)) {
+    const el = document.getElementById(key);
+    if (el) {
+      if (el.type === 'checkbox') el.checked = val;
+      else el.value = val;
+    }
+  }
+
+  // Save settings
+  function saveSettings() {
+    const btn = document.getElementById('save-btn');
+    const originalText = btn.innerText;
+    btn.innerText = "Saving...";
+    btn.disabled = true;
+
+    const payload = {};
+    document.querySelectorAll('#settings-form input, #settings-form select').forEach(el => {
+      if (!el.id) return;
+      if (el.type === 'checkbox') payload[el.id] = el.checked;
+      else payload[el.id] = el.value;
+    });
+
+    fetch('{{ url_for("dashboard.settings") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.status === 'success') {
+        btn.innerText = "Saved Successfully!";
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.disabled = false;
+        }, 2000);
+      }
+    });
+  }
+</script>
+{% endblock %}

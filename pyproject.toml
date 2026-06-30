@@ -1,0 +1,23 @@
+[project]
+name = "ai-photo-manager"
+version = "0.1.0"
+description = "Local AI-powered private photo management system with AWS-ready architecture."
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+ignore_missing_imports = true
+

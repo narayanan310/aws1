@@ -1,0 +1,41 @@
+<article class="photo-card" style="position: relative; overflow: hidden; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s;">
+  <a href="{{ url_for('photos.detail', photo_id=photo.id) }}" style="display:block;">
+    <img loading="lazy" src="{{ url_for('photos.file', photo_id=photo.id, variant='thumbnail') }}" alt="{{ photo.original_filename }}" style="width: 100%; display: block;">
+  </a>
+  
+  <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px;">
+    {% if photo.ai_status == 'completed' %}
+      <span class="badge" title="AI Analyzed" style="background: rgba(40, 167, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">✨ AI</span>
+    {% elif photo.ai_status == 'queued' or photo.ai_status == 'analyzing' %}
+      <span class="badge" title="AI Processing" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>
+    {% endif %}
+    {% if photo.favorite %}
+      <span class="badge" title="Favorite" style="background: rgba(220, 53, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">❤️</span>
+    {% endif %}
+  </div>
+
+  <div class="photo-meta" style="padding: 10px; background: var(--surface);">
+    <strong title="{{ photo.original_filename }}" style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">{{ photo.original_filename }}</strong>
+    <span style="font-size: 0.8rem; color: #888;">{{ photo.processing_status }} · {{ photo.file_size | bytes }}</span>
+  </div>
+  
+  <div class="hover-actions" style="position: absolute; top: 10px; right: 10px; opacity: 0; transition: opacity 0.2s;">
+    <form method="post" action="{{ url_for('photos.favorite', photo_id=photo.id) }}" style="margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="button small" style="background: rgba(0,0,0,0.6); border: none; color: white;">
+        {{ "💔" if photo.favorite else "❤️" }}
+      </button>
+    </form>
+  </div>
+</article>
+
+<style>
+.photo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+.photo-card:hover .hover-actions {
+  opacity: 1 !important;
+}
+</style>
+

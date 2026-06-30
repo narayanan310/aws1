@@ -1,0 +1,43 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Local configuration and secrets
+.env
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+instance/
+!instance/.gitkeep
+data/
+!data/.gitkeep
+logs/
+!logs/.gitkeep
+uploads/
+!uploads/.gitkeep
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+

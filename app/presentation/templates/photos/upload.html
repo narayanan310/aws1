@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}Staging Queue{% endblock %}
+{% block content %}
+<div class="dashboard-layout" style="display: grid; grid-template-columns: 1fr 350px; gap: 20px; height: calc(100vh - 100px);">
+  
+  <!-- Left Side: Staging Queue -->
+  <section class="panel" style="display: flex; flex-direction: column; overflow: hidden; padding: 0;">
+    <div style="padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="margin: 0;">Staging Queue</h2>
+      <div style="display: flex; gap: 10px;">
+        <label class="button secondary small" style="cursor: pointer;">
+          + Add Files
+          <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+        </label>
+        <button class="button small" id="upload-all-btn" onclick="uploadAll()" disabled>Upload All</button>
+      </div>
+    </div>
+    
+    <div id="queue-grid" style="flex: 1; overflow-y: auto; padding: 20px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-content: start;">
+      <div id="empty-state" style="grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px;">
+        No images staged. Click "Add Files" or drag them here.
+      </div>
+    </div>
+  </section>
+
+  <!-- Right Side: Metadata Editor -->
+  <aside class="panel" style="overflow-y: auto;">
+    <h2 style="margin-top: 0;">Metadata Editor</h2>
+    <div id="editor-empty" style="color: var(--muted); text-align: center; padding: 40px;">
+      Select an image to edit its metadata.
+    </div>
+    
+    <div id="editor-form" style="display: none;">
+      <div style="margin-bottom: 15px; background: #eee; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 180px;">
+        <img id="edit-preview" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      
+      <div class="form">
+        <label>Title
+          <input type="text" id="meta-title" class="input" oninput="saveDraft()">
+        </label>
+        <label>Caption
+          <input type="text" id="meta-caption" class="input" oninput="saveDraft()">
+        </label>
+        <label>Description
+          <textarea id="meta-desc" class="input" style="height: 80px;" oninput="saveDraft()"></textarea>
+        </label>
+        <label>Album / Category
+          <input type="text" id="meta-album" class="input" oninput="saveDraft()">
+        </label>
+        <label>Tags (comma separated)
+          <input type="text" id="meta-tags" class="input" oninput="saveDraft()">
+        </label>
+        
+        <div style="margin-top: 10px; padding: 15px; border-radius: 8px; border: 1px solid var(--line); background: #fafafa;">
+          <strong style="display: block; margin-bottom: 8px; font-size: 0.9rem;">AI Processing</strong>
+          <label class="check" style="font-weight: normal; font-size: 0.9rem;">
+            <input type="checkbox" id="meta-skip-ai" onchange="saveDraft()"> Skip automatic AI analysis for this image
+          </label>
+          <small style="color: var(--muted); display: block; margin-top: 5px;">If checked, only the metadata you provide above will be saved.</small>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token() }}";
+
+// Application State
+let uploadQueue = []; // Array of objects: { id, file, objectUrl, metadata: { title, caption, desc, album, tags, skip_ai }, status: 'staged' | 'uploading' | 'done' | 'error' }
+let activeId = null;
+
+// DOM Elements
+const fileInput = document.getElementById('file-input');
+const queueGrid = document.getElementById('queue-grid');
+const emptyState = document.getElementById('empty-state');
+const uploadAllBtn = document.getElementById('upload-all-btn');
+const editorEmpty = document.getElementById('editor-empty');
+const editorForm = document.getElementById('editor-form');
+const editPreview = document.getElementById('edit-preview');
+
+// Inputs
+const inputs = {
+    title: document.getElementById('meta-title'),
+    caption: document.getElementById('meta-caption'),
+    desc: document.getElementById('meta-desc'),
+    album: document.getElementById('meta-album'),
+    tags: document.getElementById('meta-tags'),
+    skip_ai: document.getElementById('meta-skip-ai')
+};
+
+// Global Drag & Drop over the whole window
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
+    e.preventDefault();
+    if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function generateId() { return 'img_' + Math.random().toString(36).substr(2, 9); }
+
+function handleFiles(files) {
+    if (!files.length) return;
+    
+    Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        
+        const id = generateId();
+        uploadQueue.push({
+            id,
+            file,
+            objectUrl: URL.createObjectURL(file),
+            status: 'staged',
+            metadata: {
+                title: '',
+                caption: '',
+                desc: '',
+                album: '',
+                tags: '',
+                skip_ai: false // Could respect user defaults here if loaded
+            }
+        });
+    });
+    
+    renderQueue();
+    // Auto select the first newly added item if nothing is selected
+    if (!activeId && uploadQueue.length > 0) {
+        selectItem(uploadQueue[uploadQueue.length - 1].id);
+    }
+}
+
+function renderQueue() {
+    if (uploadQueue.length === 0) {
+        queueGrid.innerHTML = '';
+        queueGrid.appendChild(emptyState);
+        uploadAllBtn.disabled = true;
+        editorEmpty.style.display = 'block';
+        editorForm.style.display = 'none';
+        return;
+    }
+    
+    uploadAllBtn.disabled = false;
+    
+    // Create fragments for efficiency
+    queueGrid.innerHTML = '';
+    uploadQueue.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'queue-card';
+        card.id = `card-${item.id}`;
+        card.style = `
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid ${activeId === item.id ? 'var(--accent)' : 'transparent'};
+            transition: all 0.2s;
+            box-shadow: ${activeId === item.id ? '0 4px 12px rgba(0,0,0,0.15)' : '0 2px 5px rgba(0,0,0,0.05)'};
+            transform: ${activeId === item.id ? 'scale(1.02)' : 'scale(1)'};
+        `;
+        
+        card.innerHTML = `
+            <img src="${item.objectUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+            
+            <!-- Remove Button -->
+            <div class="remove-btn" onclick="removeItem('${item.id}', event)" style="
+                position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.6); color: white;
+                width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+                font-weight: bold; font-size: 12px; transition: background 0.2s;
+            ">✕</div>
+            
+            <!-- Status overlay -->
+            <div class="status-overlay" id="status-${item.id}" style="
+                position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white;
+                font-size: 0.75rem; padding: 4px 8px; text-align: center;
+                display: ${item.status === 'staged' ? 'none' : 'block'};
+            ">
+                ${item.status === 'uploading' ? 'Uploading...' : item.status === 'done' ? '✓ Uploaded' : 'Error'}
+            </div>
+        `;
+        
+        card.onclick = () => selectItem(item.id);
+        
+        // Hover effects for the remove button
+        const rmBtn = card.querySelector('.remove-btn');
+        rmBtn.onmouseover = () => rmBtn.style.background = 'var(--danger)';
+        rmBtn.onmouseout = () => rmBtn.style.background = 'rgba(0,0,0,0.6)';
+        
+        queueGrid.appendChild(card);
+    });
+}
+
+function selectItem(id) {
+    activeId = id;
+    renderQueue(); // Re-render to update borders
+    
+    const item = uploadQueue.find(i => i.id === id);
+    if (!item) return;
+    
+    editorEmpty.style.display = 'none';
+    editorForm.style.display = 'block';
+    
+    editPreview.src = item.objectUrl;
+    inputs.title.value = item.metadata.title;
+    inputs.caption.value = item.metadata.caption;
+    inputs.desc.value = item.metadata.desc;
+    inputs.album.value = item.metadata.album;
+    inputs.tags.value = item.metadata.tags;
+    inputs.skip_ai.checked = item.metadata.skip_ai;
+}
+
+function saveDraft() {
+    if (!activeId) return;
+    const item = uploadQueue.find(i => i.id === activeId);
+    if (!item) return;
+    
+    item.metadata = {
+        title: inputs.title.value,
+        caption: inputs.caption.value,
+        desc: inputs.desc.value,
+        album: inputs.album.value,
+        tags: inputs.tags.value,
+        skip_ai: inputs.skip_ai.checked
+    };
+}
+
+function removeItem(id, event) {
+    event.stopPropagation(); // Don't trigger selectItem
+    
+    const itemIndex = uploadQueue.findIndex(i => i.id === id);
+    if (itemIndex > -1) {
+        URL.revokeObjectURL(uploadQueue[itemIndex].objectUrl);
+        uploadQueue.splice(itemIndex, 1);
+        
+        if (activeId === id) {
+            activeId = uploadQueue.length > 0 ? uploadQueue[0].id : null;
+            if (!activeId) {
+                editorEmpty.style.display = 'block';
+                editorForm.style.display = 'none';
+            } else {
+                selectItem(activeId);
+            }
+        }
+        renderQueue();
+    }
+}
+
+async function uploadAll() {
+    const pendingItems = uploadQueue.filter(i => i.status === 'staged' || i.status === 'error');
+    if (pendingItems.length === 0) return;
+    
+    uploadAllBtn.disabled = true;
+    uploadAllBtn.innerText = "Uploading...";
+    
+    for (const item of pendingItems) {
+        item.status = 'uploading';
+        const overlay = document.getElementById(`status-${item.id}`);
+        if(overlay) { overlay.style.display = 'block'; overlay.innerText = 'Uploading...'; }
+        
+        const fd = new FormData();
+        fd.append('photo', item.file);
+        fd.append('title', item.metadata.title);
+        fd.append('caption', item.metadata.caption);
+        fd.append('description', item.metadata.desc);
+        fd.append('album', item.metadata.album);
+        fd.append('tags', item.metadata.tags);
+        fd.append('skip_ai', item.metadata.skip_ai ? "true" : "false");
+        
+        try {
+            const res = await fetch('/photos/api/upload', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: fd
+            });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                item.status = 'done';
+                if(overlay) { overlay.style.background = 'rgba(40,167,69,0.9)'; overlay.innerText = '✓ Done'; }
+                
+                // After 2 seconds, remove completed items from the queue visually
+                setTimeout(() => {
+                    removeItem(item.id, {stopPropagation: ()=>{}});
+                    if(uploadQueue.length === 0) {
+                        window.location.href = "{{ url_for('photos.gallery') }}"; // Redirect to gallery when all done
+                    }
+                }, 1500);
+            } else {
+                item.status = 'error';
+                if(overlay) { overlay.style.background = 'rgba(220,53,69,0.9)'; overlay.innerText = 'Error'; }
+            }
+        } catch(e) {
+            item.status = 'error';
+            if(overlay) { overlay.style.background = 'rgba(220,53,69,0.9)'; overlay.innerText = 'Error'; }
+        }
+    }
+    
+    if (uploadQueue.some(i => i.status === 'error')) {
+        uploadAllBtn.disabled = false;
+        uploadAllBtn.innerText = "Retry Failed";
+    }
+}
+</script>
+{% endblock %}
+

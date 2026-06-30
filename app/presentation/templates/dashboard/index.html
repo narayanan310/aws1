@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="page-title">
+  <div><p class="eyebrow">Private AI Photo Library</p><h1>Dashboard</h1></div>
+  <a class="button" href="{{ url_for('photos.upload') }}">Upload Photos</a>
+</section>
+<section class="stats">
+  <article><strong>{{ summary.stats.total_photos }}</strong><span>Photos</span></article>
+  <article><strong>{{ summary.stats.favorites }}</strong><span>Favorites</span></article>
+  <article><strong>{{ summary.stats.ai_not_analyzed }}</strong><span>Awaiting AI</span></article>
+  <article><strong>{{ summary.stats.ai_drafts }}</strong><span>AI Drafts</span></article>
+  <article><strong>{{ summary.stats.albums }}</strong><span>Albums</span></article>
+  <article><strong>{{ summary.stats.pending_queue }}</strong><span>Queued Jobs</span></article>
+</section>
+<h2>Recent Uploads</h2>
+<section class="photo-grid">
+  {% for photo in recent %}
+    {% include "photos/_card.html" %}
+  {% else %}
+    <p class="empty">No photos yet.</p>
+  {% endfor %}
+</section>
+<h2>Recent Activity</h2>
+<section class="panel">
+  {% for item in summary.activity %}
+    <p class="activity"><strong>{{ item.action }}</strong> {{ item.message }}</p>
+  {% else %}
+    <p class="empty">No activity yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}
+

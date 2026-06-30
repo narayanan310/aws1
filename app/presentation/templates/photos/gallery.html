@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Asset Dashboard{% endblock %}
+{% block content %}
+<div class="dashboard-layout" style="display: flex; height: calc(100vh - 60px); overflow: hidden; position: relative;">
+  
+  <!-- Main Gallery Area -->
+  <main class="dashboard-main" style="flex: 1; overflow-y: auto; padding: 1rem; transition: margin-right 0.3s;">
+    <section class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h1 style="margin: 0;">Asset Dashboard</h1>
+      <label class="button primary" style="cursor: pointer;">
+        + Upload Files
+        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+      </label>
+    </section>
+
+    <!-- Global Dropzone Overlay -->
+    <div id="dropzone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 2rem; text-align: center; margin-bottom: 1rem; background: var(--surface); transition: background 0.2s;">
+      <p style="margin: 0; color: #888;">Drag and drop images here to upload.</p>
+    </div>
+
+    <!-- Filters -->
+    <form class="filters" method="get" style="margin-bottom: 1rem;">
+      <input name="q" placeholder="Search filename, metadata..." value="{{ filters.query }}">
+      <select name="sort">
+        <option value="newest" {% if filters.sort == "newest" %}selected{% endif %}>Newest</option>
+        <option value="oldest" {% if filters.sort == "oldest" %}selected{% endif %}>Oldest</option>
+      </select>
+      <button class="button small" type="submit">Apply</button>
+    </form>
+
+    <!-- Dynamic Grid -->
+    <section class="photo-grid" id="photo-grid">
+      {% for photo in pagination.items %}
+        <article class="photo-card" data-id="{{ photo.id }}" data-ai-status="{{ photo.ai_status }}" onclick="openSidePanel({{ photo.id }})" style="position: relative; overflow: hidden; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent;">
+          <img loading="lazy" src="{{ url_for('photos.file', photo_id=photo.id, variant='thumbnail') }}" alt="{{ photo.original_filename }}" style="width: 100%; display: block; aspect-ratio: 1; object-fit: cover;">
+          
+          <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px;" class="card-badges">
+            {% if photo.ai_status == 'completed' or photo.ai_status == 'approved' %}
+              <span class="badge" title="AI Analyzed" style="background: rgba(40, 167, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">✨ AI</span>
+            {% elif photo.ai_status == 'queued' or photo.ai_status == 'analyzing' %}
+              <span class="badge ai-polling" title="AI Processing" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>
+            {% endif %}
+          </div>
+        
+          <div class="photo-meta" style="padding: 10px; background: var(--surface);">
+            <strong title="{{ photo.original_filename }}" style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">{{ photo.original_filename }}</strong>
+            <span class="status-text" style="font-size: 0.8rem; color: #888;">{{ photo.processing_status }}</span>
+          </div>
+        </article>
+      {% else %}
+        <p class="empty" id="empty-state">No photos yet.</p>
+      {% endfor %}
+    </section>
+  </main>
+
+  <!-- Sliding Metadata Panel -->
+  <aside id="side-panel" style="width: 350px; background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; transform: translateX(100%); transition: transform 0.3s; position: absolute; right: 0; top: 0; bottom: 0; z-index: 100; box-shadow: -4px 0 15px rgba(0,0,0,0.1);">
+    <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+      <h2 style="margin: 0; font-size: 1.2rem;">Metadata</h2>
+      <button class="button small" onclick="closeSidePanel()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+    </div>
+    <div id="side-panel-content" style="padding: 1rem;">
+      <p style="color: #888; text-align: center;">Select an image to view details.</p>
+    </div>
+  </aside>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token() }}";
+let activePolls = new Set();
+let pollInterval = null;
+let currentSelectedId = null;
+
+// File Input & Drag and Drop Handling
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.background = 'rgba(0,123,255,0.1)'; });
+dropzone.addEventListener('dragleave', () => dropzone.style.background = 'var(--surface)');
+dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.background = 'var(--surface)';
+    handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+function handleFiles(files) {
+    if (!files.length) return;
+    document.getElementById('empty-state')?.remove();
+    
+    Array.from(files).forEach(file => {
+        // Create an optimistic local card for the upload
+        const tempId = 'temp_' + Math.random().toString(36).substr(2, 9);
+        const cardHtml = `
+          <article class="photo-card" id="${tempId}" style="position: relative; overflow: hidden; border-radius: 12px; border: 2px solid #007bff; opacity: 0.7;">
+            <div style="aspect-ratio: 1; background: #eee; display: flex; align-items: center; justify-content: center;">
+              <span class="spinner" style="width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+            </div>
+            <div class="photo-meta" style="padding: 10px; background: var(--surface);">
+              <strong style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">${file.name}</strong>
+              <span style="font-size: 0.8rem; color: #007bff;">Uploading...</span>
+            </div>
+          </article>
+        `;
+        document.getElementById('photo-grid').insertAdjacentHTML('afterbegin', cardHtml);
+        
+        // Upload the file via AJAX
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        fetch('/photos/api/upload', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Replace temp card with actual card
+                const actualCard = `
+                  <article class="photo-card" id="card-${data.photo_id}" data-id="${data.photo_id}" data-ai-status="${data.ai_status}" onclick="openSidePanel(${data.photo_id})" style="position: relative; overflow: hidden; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                    <img loading="lazy" src="${data.thumbnail_url}" style="width: 100%; display: block; aspect-ratio: 1; object-fit: cover;">
+                    <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px;" class="card-badges">
+                      <span class="badge ai-polling" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>
+                    </div>
+                    <div class="photo-meta" style="padding: 10px; background: var(--surface);">
+                      <strong style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">${data.filename}</strong>
+                      <span class="status-text" style="font-size: 0.8rem; color: #888;">${data.processing_status}</span>
+                    </div>
+                  </article>
+                `;
+                document.getElementById(tempId).outerHTML = actualCard;
+                activePolls.add(data.photo_id);
+                startGlobalPolling();
+            } else {
+                document.getElementById(tempId).querySelector('.status-text').innerText = "Failed";
+                document.getElementById(tempId).style.borderColor = "red";
+            }
+        });
+    });
+}
+
+// Side Panel Logic
+function openSidePanel(photoId) {
+    currentSelectedId = photoId;
+    const panel = document.getElementById('side-panel');
+    const main = document.querySelector('.dashboard-main');
+    
+    // Highlight active card
+    document.querySelectorAll('.photo-card').forEach(c => c.style.borderColor = 'transparent');
+    const card = document.getElementById(`card-${photoId}`) || document.querySelector(`.photo-card[data-id="${photoId}"]`);
+    if(card) card.style.borderColor = 'var(--primary)';
+    
+    // Slide panel in
+    panel.style.transform = 'translateX(0)';
+    main.style.marginRight = '350px';
+    
+    // Load metadata
+    document.getElementById('side-panel-content').innerHTML = `
+      <div style="text-align: center; padding: 2rem;">
+        <span class="spinner" style="display: inline-block; width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></span>
+      </div>
+    `;
+    
+    fetch(`/photos/api/${photoId}/ai-draft`)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('side-panel-content').innerHTML = `
+              <div style="margin-bottom: 1rem;">
+                <img src="/photos/${photoId}/file/preview" style="width: 100%; border-radius: 8px;">
+              </div>
+              <form id="metadata-form" onsubmit="saveMetadata(event)">
+                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Title
+                  <input type="text" id="meta-title" value="${data.title || ''}" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
+                </label>
+                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Description
+                  <textarea id="meta-desc" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px; height: 80px;">${data.description || ''}</textarea>
+                </label>
+                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Tags (comma separated)
+                  <input type="text" id="meta-tags" value="${(data.keywords || []).join(', ')}" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
+                </label>
+                
+                <div style="padding: 10px; background: rgba(0,123,255,0.1); border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;">
+                  <strong>AI Context:</strong><br>
+                  Scene: ${data.scene_type || 'N/A'}<br>
+                  Confidence: ${data.confidence ? (data.confidence * 100).toFixed(0) + '%' : 'N/A'}
+                </div>
+                
+                <button type="submit" class="button primary" style="width: 100%;">Save Metadata</button>
+                <button type="button" class="button secondary" style="width: 100%; margin-top: 10px;" onclick="forceReanalyze()">✨ Re-Analyze</button>
+              </form>
+            `;
+        });
+}
+
+function closeSidePanel() {
+    document.getElementById('side-panel').style.transform = 'translateX(100%)';
+    document.querySelector('.dashboard-main').style.marginRight = '0';
+    document.querySelectorAll('.photo-card').forEach(c => c.style.borderColor = 'transparent');
+    currentSelectedId = null;
+}
+
+function saveMetadata(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.innerText = "Saving...";
+    btn.disabled = true;
+    
+    const payload = {
+        title: document.getElementById('meta-title').value,
+        description: document.getElementById('meta-desc').value,
+        tags: document.getElementById('meta-tags').value.split(',').map(t => t.trim()).filter(t => t)
+    };
+    
+    fetch(`/photos/api/${currentSelectedId}/metadata`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(res => res.json()).then(data => {
+        btn.innerText = "Saved!";
+        setTimeout(() => { btn.innerText = "Save Metadata"; btn.disabled = false; }, 2000);
+    });
+}
+
+function forceReanalyze() {
+    fetch(`/photos/api/${currentSelectedId}/analyze`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
+    }).then(res => res.json()).then(data => {
+        activePolls.add(currentSelectedId);
+        startGlobalPolling();
+        
+        // Update Card visually
+        const card = document.getElementById(`card-${currentSelectedId}`) || document.querySelector(`.photo-card[data-id="${currentSelectedId}"]`);
+        if (card) {
+            card.dataset.aiStatus = 'queued';
+            card.querySelector('.card-badges').innerHTML = '<span class="badge ai-polling" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>';
+        }
+    });
+}
+
+// Global Polling Engine
+function startGlobalPolling() {
+    if (pollInterval) return; // already running
+    
+    // Find all cards initially that are polling
+    document.querySelectorAll('.photo-card[data-ai-status="queued"], .photo-card[data-ai-status="analyzing"]').forEach(c => {
+        activePolls.add(parseInt(c.dataset.id));
+    });
+    
+    if (activePolls.size === 0) return;
+    
+    pollInterval = setInterval(() => {
+        if (activePolls.size === 0) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+            return;
+        }
+        
+        const ids = Array.from(activePolls).join(',');
+        fetch(`/photos/api/status?ids=${ids}`)
+            .then(res => res.json())
+            .then(data => {
+                const statuses = data.statuses;
+                for (const [idStr, statusInfo] of Object.entries(statuses)) {
+                    const id = parseInt(idStr);
+                    const card = document.getElementById(`card-${id}`) || document.querySelector(`.photo-card[data-id="${id}"]`);
+                    
+                    if (card && (statusInfo.ai_status === 'completed' || statusInfo.ai_status === 'approved')) {
+                        activePolls.delete(id);
+                        card.dataset.aiStatus = 'completed';
+                        card.querySelector('.card-badges').innerHTML = '<span class="badge" style="background: rgba(40, 167, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">✨ AI</span>';
+                        
+                        // If this card is currently open in the side panel, refresh the data
+                        if (currentSelectedId === id) {
+                            openSidePanel(id); 
+                        }
+                    } else if (card && statusInfo.ai_status === 'failed') {
+                        activePolls.delete(id);
+                        card.dataset.aiStatus = 'failed';
+                        card.querySelector('.card-badges').innerHTML = '<span class="badge" style="background: rgba(220, 53, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">❌ Failed</span>';
+                    }
+                }
+            });
+    }, 2500);
+}
+
+// Init polling on page load if there are queued items
+document.addEventListener("DOMContentLoaded", startGlobalPolling);
+</script>
+<style>
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
