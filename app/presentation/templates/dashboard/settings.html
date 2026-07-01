@@ -11,7 +11,7 @@
     <!-- Sidebar -->
     <aside style="border-right: 1px solid var(--line); padding-right: 1rem;">
       <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 10px;">
-        <li><a href="#ai" class="settings-link active" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600; color: var(--accent);">AI Pipeline</a></li>
+
         <li><a href="#upload" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Upload Behavior</a></li>
         <li><a href="#interface" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Interface</a></li>
         <li><a href="#metadata" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Metadata</a></li>
@@ -21,31 +21,7 @@
 
     <!-- Content -->
     <div class="settings-content" id="settings-form">
-      <!-- AI Section -->
-      <div id="ai" class="settings-section">
-        <h2>AI Pipeline</h2>
-        <div class="form">
-          <label class="check">
-            <input type="checkbox" id="set-ai-enabled" checked> Enable automatic AI analysis globally
-          </label>
-          <label class="check">
-            <input type="checkbox" id="set-ai-skip-default"> Skip AI by default on uploads
-          </label>
-          <label>Preferred Vision Model
-            <select id="set-ai-model">
-              <option value="qwen2-5-vl">Qwen2.5-VL (Local)</option>
-              <option value="llava">LLaVA (Local)</option>
-            </select>
-          </label>
-          <label>AI Confidence Threshold (0.0 - 1.0)
-            <input type="number" step="0.1" id="set-ai-confidence" value="0.75" class="input">
-          </label>
-          <label class="check"><input type="checkbox" id="set-ai-auto-tags" checked> Auto-generate Tags</label>
-          <label class="check"><input type="checkbox" id="set-ai-auto-caption" checked> Auto-generate Captions</label>
-          <label class="check"><input type="checkbox" id="set-ai-ocr" checked> Enable Document OCR</label>
-          <label class="check"><input type="checkbox" id="set-ai-objects" checked> Enable Object Detection</label>
-        </div>
-      </div>
+
 
       <!-- Upload Section -->
       <div id="upload" class="settings-section" style="display: none;">
@@ -95,10 +71,7 @@
           <label class="check"><input type="checkbox" id="set-perf-gpu" checked> Enable GPU Acceleration</label>
           <label class="check"><input type="checkbox" id="set-perf-debug"> Enable Debug Logging</label>
           
-          <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--line);">
-            <button class="button secondary danger" type="button" onclick="alert('Cache cleared.')">Clear AI Cache</button>
-            <button class="button secondary danger" type="button" onclick="alert('Index rebuilt.')" style="margin-left: 10px;">Rebuild Search Index</button>
-          </div>
+
         </div>
       </div>
 

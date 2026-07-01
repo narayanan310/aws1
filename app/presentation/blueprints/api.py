@@ -9,7 +9,7 @@ from app.application.dto.photo_dto import SearchFilters
 from app.application.services.catalog_service import NoteService
 from app.application.services.photo_service import PhotoService
 from app.application.services.search_service import SearchService
-from app.infrastructure.database.models import AIResult, PhotoNote
+from app.infrastructure.database.models import PhotoNote
 from app.infrastructure.repositories.photo_repository import PhotoRepository
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -48,11 +48,9 @@ def photos():
 @login_required
 def photo_detail(photo_id: int):
     photo = PhotoService().get_owned_or_404(current_user.id, photo_id)
-    ai = AIResult.query.filter_by(owner_id=current_user.id, photo_id=photo.id).first()
     note = PhotoNote.query.filter_by(owner_id=current_user.id, photo_id=photo.id).first()
     tags = PhotoRepository().tags_for_photo(current_user.id, photo.id)
     payload = _photo_json(photo)
-    payload["ai"] = _ai_json(ai)
     payload["note"] = _note_json(note)
     payload["tags"] = [tag.name for tag in tags]
     return ok(payload)
@@ -75,17 +73,9 @@ def notes(photo_id: int):
         title=payload.get("title", ""),
         description=payload.get("description", ""),
         personal_notes=payload.get("personal_notes", ""),
-        ai_notes=payload.get("ai_notes", ""),
     )
     return ok(_note_json(note))
 
-
-@api_bp.route("/search/semantic")
-@login_required
-def semantic():
-    query = request.args.get("q", "")
-    results = SearchService().semantic(current_user.id, query) if query else []
-    return ok([_photo_json(photo) for photo in results])
 
 
 def _photo_json(photo):
@@ -107,20 +97,6 @@ def _photo_json(photo):
     }
 
 
-def _ai_json(ai):
-    if not ai:
-        return None
-    return {
-        "title": ai.title,
-        "caption": ai.caption,
-        "description": ai.description,
-        "ocr_text": ai.ocr_text,
-        "keywords": ai.keywords,
-        "mood": ai.mood,
-        "confidence": ai.confidence,
-    }
-
-
 def _note_json(note):
     if not note:
         return None
@@ -128,7 +104,6 @@ def _note_json(note):
         "title": note.title,
         "description": note.description,
         "personal_notes": note.personal_notes,
-        "ai_notes": note.ai_notes,
         "version": note.version,
     }
 

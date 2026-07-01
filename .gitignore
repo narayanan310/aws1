@@ -1,43 +1,59 @@
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# Python cache files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Pytest and coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# Virtual Environment
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Local configuration and secrets
+# Environment Variables
 .env
+
+# Flask
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# OS Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Project specific
-instance/
-!instance/.gitkeep
-data/
-!data/.gitkeep
+# Project Specific
 logs/
-!logs/.gitkeep
 uploads/
-!uploads/.gitkeep
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
-
+tmp/
+scratch/

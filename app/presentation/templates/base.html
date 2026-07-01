@@ -1,23 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" x-data :data-theme="$store.theme.current">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{% block title %}AI Photo Manager{% endblock %}</title>
+  <title>{% block title %}Photo Manager{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
 <body>
   <header class="shell-header">
-    <a class="brand" href="{{ url_for('dashboard.index') if current_user.is_authenticated else url_for('auth.login') }}">AI Photo Manager</a>
+    <a class="brand" href="{{ url_for('dashboard.index') if current_user.is_authenticated else url_for('auth.login') }}">Photo Manager</a>
     <nav style="gap: 20px; font-weight: 500;">
       {% if current_user.is_authenticated %}
         <a href="{{ url_for('dashboard.index') }}" class="nav-link">Dashboard</a>
-        <a href="{{ url_for('photos.gallery') }}" class="nav-link">Gallery</a>
-        <a href="{{ url_for('photos.upload') }}" class="nav-link">Upload</a>
+        <a href="{{ url_for('photos.gallery') }}" class="nav-link">Library</a>
         <a href="{{ url_for('albums.index') }}" class="nav-link">Albums</a>
-        <a href="{{ url_for('photos.semantic_search') }}" class="nav-link">Search</a>
+
         <a href="{{ url_for('dashboard.settings') }}" class="nav-link">Settings</a>
+        <button @click="$store.theme.toggle()" class="link-button" title="Toggle Theme" style="cursor: pointer; padding: 4px; font-size: 1.1rem;" x-text="$store.theme.current === 'dark' ? '☀️' : '🌙'"></button>
         <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="link-button" type="submit" style="color: var(--danger); font-weight: 600;">Logout</button>

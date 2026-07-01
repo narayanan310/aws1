@@ -21,7 +21,7 @@ class QueueStatus(StrEnum):
 
 class QueueTaskType(StrEnum):
     IMAGE_PROCESSING = "image_processing"
-    AI_ANALYSIS = "ai_analysis"
+
     EMBEDDING = "embedding"
     CLEANUP = "cleanup"
 
@@ -39,6 +39,6 @@ class ActivityType(StrEnum):
     ARCHIVE = "archive"
     DOWNLOAD = "download"
     EDIT_NOTES = "edit_notes"
-    AI_PROCESSING = "ai_processing"
+
     FAVORITE = "favorite"
 

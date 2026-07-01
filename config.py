@@ -30,7 +30,7 @@ class BaseConfig:
     UPLOAD_ROOT = BASE_DIR / os.getenv("UPLOAD_ROOT", "uploads")
     LOG_DIR = BASE_DIR / "logs"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    AI_MODE = os.getenv("AI_MODE", "mock")
+
     RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
     WTF_CSRF_TIME_LIMIT = None
     SESSION_COOKIE_HTTPONLY = True

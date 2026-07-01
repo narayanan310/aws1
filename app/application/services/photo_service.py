@@ -12,7 +12,7 @@ from app.application.services.audit_service import ActivityService, AuditService
 from app.domain.entities.enums import ActivityType, QueueTaskType
 from app.domain.exceptions.domain_exceptions import AuthorizationError, NotFoundError, ValidationError
 from app.extensions import db
-from app.infrastructure.database.models import AIResult, Favorite, Photo, Trash, User
+from app.infrastructure.database.models import Favorite, Photo, Trash, User
 from app.infrastructure.repositories.photo_repository import PhotoRepository
 from app.infrastructure.repositories.queue_repository import QueueRepository
 from app.infrastructure.security.upload_validator import UploadValidator
@@ -51,42 +51,12 @@ class PhotoService:
                 format=image_format,
                 mime_type=upload.mimetype,
                 file_size=original_path.stat().st_size,
-                processing_status="pending",
-                ai_status="queued"
+                processing_status="pending"
             )
             db.session.add(photo)
             db.session.flush()
             
-            # Setup initial AIResult with user metadata if provided
-            ai_result = AIResult(owner_id=owner.id, photo_id=photo.id)
-            if metadata:
-                ai_result.title = metadata.get("title") or None
-                ai_result.caption = metadata.get("caption") or None
-                ai_result.description = metadata.get("description") or None
-                ai_result.suggested_album = metadata.get("album") or None
-                if metadata.get("tags"):
-                    ai_result.keywords = metadata["tags"]
-                    
-            db.session.add(ai_result)
-            db.session.flush()
-            
             self.queue.enqueue(owner.id, photo.id, QueueTaskType.IMAGE_PROCESSING.value)
-            
-            # Determine if AI Analysis is needed
-            skip_ai = metadata.get("skip_ai") is True if metadata else False
-            needs_ai = not skip_ai and (not metadata or not all([
-                metadata.get("title"), 
-                metadata.get("caption"), 
-                metadata.get("description"),
-                metadata.get("tags")
-            ]))
-            
-            if needs_ai:
-                self.queue.enqueue(owner.id, photo.id, QueueTaskType.AI_ANALYSIS.value)
-            else:
-                photo.ai_status = "completed"
-                # Queue embedding right away since we have full metadata or opted out
-                self.queue.enqueue(owner.id, photo.id, QueueTaskType.EMBEDDING.value)
             
             self.activity.record(
                 owner_id=owner.id,

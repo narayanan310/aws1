@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_
 
-from app.infrastructure.database.models import AIResult, Photo, PhotoTag, Tag
+from app.infrastructure.database.models import Photo, PhotoTag, Tag
 from app.infrastructure.repositories.base import Repository
 
 
@@ -39,13 +39,10 @@ class PhotoRepository(Repository[Photo]):
             query = query.filter(Photo.format == file_format.upper())
         if search:
             like = f"%{search}%"
-            query = query.outerjoin(AIResult, AIResult.photo_id == Photo.id).filter(
+            query = query.filter(
                 or_(
                     Photo.original_filename.ilike(like),
                     Photo.camera.ilike(like),
-                    AIResult.title.ilike(like),
-                    AIResult.description.ilike(like),
-                    AIResult.ocr_text.ilike(like),
                 )
             )
         if sort == "oldest":

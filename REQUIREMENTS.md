@@ -1,54 +1,27 @@
 # Requirements
 
-This document lists the software, Python packages, and AI models required to run AI Photo Manager.
+This document outlines the software requirements and dependencies for the Photo Manager application.
 
-## Software
+## Software Requirements
 
-- **Python**: v3.10 or v3.11 (Package manager: `pip`)
-- **System Libraries**: On Linux, you may need `libgl1-mesa-glx` for OpenCV image processing.
+- **Python**: 3.10+
+- **Package Manager**: `pip` (included with standard Python installations)
 
-## Python Packages
+## Python Packages (Dependencies)
 
-The following core packages are required (see `requirements.txt` for exact pinned versions):
+The project relies on the following key packages:
 
-### Web & API
-- `Flask`: The core web framework.
-- `Flask-Login`: Session management and user authentication.
-- `Werkzeug`: WSGI utility library (handles secure file uploads).
+- **`Flask` (3.0.3)**: The core web framework used to serve the API and frontend HTML.
+- **`Flask-SQLAlchemy` (3.1.1)** & **`SQLAlchemy` (2.0.31)**: Used as the ORM to interact with the local SQLite database.
+- **`Flask-Login` (0.6.3)**: Manages user authentication and session cookies securely.
+- **`Pillow` (10.4.0)**: Required for image resizing, cropping, and generating web-friendly thumbnails.
+- **`python-dotenv` (1.0.1)**: Loads configuration settings from the local `.env` file.
+- **`loguru` (0.7.2)**: Advanced, thread-safe logging utility used across the web server and background workers.
+- **`ImageHash` (4.3.1)**: Used to compute perceptual hashes for uploaded photos to detect duplicates.
 
-### Database & Storage
-- `SQLAlchemy`: ORM for database interactions.
-- `Flask-SQLAlchemy`: Flask extension for SQLAlchemy.
+### Optional Tools
 
-### AI & Machine Learning
-- `torch` & `torchvision`: PyTorch framework for running neural networks.
-- `transformers`: HuggingFace library used to load and run the Vision-Language Models.
-- `sentence-transformers`: Used to generate vector embeddings for semantic search.
-- `qwen-vl-utils`: Utility library specific to Qwen models for processing visual inputs.
-- `Pillow`: Image processing library (resizing, format conversion).
-- `numpy`: Numerical processing required by ML libraries.
+- **`pytest` (8.2.2)**: Testing framework.
+- **`black`, `isort`, `flake8`**: Standard code formatting and linting tools.
 
-## AI Models
-
-AI Photo Manager relies on locally executed open-source models for absolute privacy.
-
-### 1. Vision-Language Model (VLM)
-- **Model Name**: `Qwen/Qwen2.5-VL-3B-Instruct`
-- **Purpose**: Analyzes the raw image and generates the JSON payload containing the title, caption, detailed description, tags, objects, and OCR text.
-- **Why this model?**: It is currently the state-of-the-art open-weight VLM in the sub-5B parameter category. It understands varied aspect ratios natively and excels at OCR and document understanding.
-- **Download Size**: ~6 GB.
-- **Hardware Requirements**:
-  - **Memory (RAM/VRAM)**: Requires ~8GB of VRAM/Unified Memory to run comfortably at `bfloat16` precision.
-  - **GPU**: Highly recommended. Runs on NVIDIA GPUs (CUDA) or Apple Silicon (MPS).
-  - **CPU Compatibility**: Can run on CPU, but inference will take 30-90 seconds per image instead of 1-3 seconds on a GPU.
-
-### 2. Embedding Model
-- **Model Name**: `all-MiniLM-L6-v2` (via SentenceTransformers)
-- **Purpose**: Converts the AI-generated descriptions and tags into numerical vectors. These vectors are then compared during Semantic Search (e.g., searching for "a sunny day at the beach").
-- **Download Size**: ~90 MB.
-- **Hardware Requirements**: Very lightweight. Runs perfectly fine on CPU, taking milliseconds.
-
-### Storage Location
-All models are automatically downloaded by the `transformers` library on first run. They are cached in your user directory:
-- macOS/Linux: `~/.cache/huggingface/hub/`
-- Windows: `C:\Users\<User>\.cache\huggingface\hub\`
+*Note: All AI dependencies (such as Torch and Transformers) were intentionally removed from the project during the pivot to a standard DAM architecture to reduce system requirements.*

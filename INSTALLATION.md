@@ -1,74 +1,47 @@
 # Installation Guide
 
-This document covers how to install AI Photo Manager and its prerequisites on your local machine.
+This guide will walk you through installing the Photo Manager application.
 
-## Supported Operating Systems
+## System Requirements
 
-- **macOS**: Fully supported (Apple Silicon highly recommended for AI features).
-- **Linux**: Fully supported (Ubuntu 22.04+ recommended, NVIDIA GPU highly recommended).
-- **Windows**: Supported via WSL2 or natively (NVIDIA GPU recommended).
+- **Operating System**: macOS, Linux, or Windows (WSL2 recommended).
+- **Python**: Version 3.10 or higher.
+- **Git**: Required to clone the repository.
 
-## Prerequisites
+## Step-by-Step Installation
 
-Before installing, ensure you have the following installed on your system:
-- **Python**: Version `3.10` or `3.11`. (Python 3.12+ may have compatibility issues with some older ML libraries).
-- **Git**: To clone the repository.
-- **SQLite**: Comes pre-installed with Python, but ensure the C-extensions are available.
-
-*Note: Node.js is **not** required for this project, as the frontend uses Vanilla JS directly injected into Flask templates.*
-
-## 1. Clone the Repository
-
+### 1. Clone the Repository
+Open your terminal and run:
 ```bash
-git clone https://github.com/narayanan310/AWS.git
-cd AWS
+git clone https://github.com/narayanan310/aws1.git ai-photo-manager
+cd ai-photo-manager
 ```
 
-## 2. Create a Virtual Environment
-
-It is highly recommended to isolate your dependencies using a Python virtual environment.
-
-**macOS / Linux:**
+### 2. Set Up a Virtual Environment
+It is highly recommended to use a virtual environment to manage dependencies:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-**Windows (PowerShell):**
-```bash
+# Create a virtual environment named .venv
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+
+# Activate it
+# On macOS/Linux:
+source .venv/bin/activate
+# On Windows:
+.venv\Scripts\activate
 ```
 
-## 3. Install Dependencies
-
-With your virtual environment activated, install the required packages:
-
+### 3. Install Dependencies
+Install the required Python packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-*(See [REQUIREMENTS.md](REQUIREMENTS.md) for a detailed breakdown of what is being installed.)*
-
-## 4. Hardware Acceleration (Optional but Recommended)
-
-By default, PyTorch will install the CPU version on macOS and standard versions on Linux/Windows. If you have an NVIDIA GPU, you should install the CUDA-enabled version of PyTorch to drastically speed up AI inference.
-
-**For NVIDIA GPUs (Linux / Windows WSL2):**
+### 4. Configuration
+Create a `.env` file in the root directory. You can copy the provided example:
 ```bash
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+cp .env.example .env
 ```
+Ensure that you update the `SECRET_KEY` in `.env` if deploying beyond local development.
 
-**For Apple Silicon (M1/M2/M3):**
-PyTorch natively supports MPS (Metal Performance Shaders). No additional installation is required! The backend automatically detects `mps` and uses it.
-
-## 5. Model Downloads
-
-You do not need to download models manually!
-Upon starting the background workers for the first time, the `transformers` library will automatically download the default Vision-Language Model (`Qwen/Qwen2.5-VL-3B-Instruct`) to your local HuggingFace cache directory (usually `~/.cache/huggingface`).
-
-*Note: The initial download will take a few minutes as the model is several gigabytes in size.*
-
-## Next Steps
-
-Once installation is complete, proceed to [SETUP.md](SETUP.md) for instructions on configuring your environment variables, initializing the database, and running the application.
+### 5. Next Steps
+Move on to the [Setup Guide](SETUP.md) to initialize the database and run the application for the first time.

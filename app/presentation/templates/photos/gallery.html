@@ -1,295 +1,227 @@
 {% extends "base.html" %}
 {% block title %}Asset Dashboard{% endblock %}
 {% block content %}
-<div class="dashboard-layout" style="display: flex; height: calc(100vh - 60px); overflow: hidden; position: relative;">
+<div x-data="galleryApp()" 
+     @close-panels.window="selectedPhoto = null; lightboxOpen = false"
+     class="dashboard-layout" 
+     style="display: flex; height: calc(100vh - 65px); overflow: hidden; position: relative; margin: -30px -22px -60px;">
   
   <!-- Main Gallery Area -->
-  <main class="dashboard-main" style="flex: 1; overflow-y: auto; padding: 1rem; transition: margin-right 0.3s;">
+  <main class="dashboard-main" style="flex: 1; overflow-y: auto; padding: 22px; position: relative;">
     <section class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h1 style="margin: 0;">Asset Dashboard</h1>
-      <label class="button primary" style="cursor: pointer;">
-        + Upload Files
-        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
-      </label>
+      <h1 style="margin: 0;">Library</h1>
+      <div style="display: flex; gap: 10px;">
+        <!-- Bulk Selection Actions -->
+        <template x-if="$store.selection.count > 0">
+          <div style="display: flex; align-items: center; gap: 10px; background: var(--panel); padding: 5px 15px; border-radius: 6px; border: 1px solid var(--line); animation: fadeIn 0.2s;">
+            <span x-text="$store.selection.count + ' selected'" style="font-weight: 600;"></span>
+            <button class="button small secondary" title="Batch Edit (Not Implemented Yet)">Batch Edit</button>
+            <button class="button small danger" title="Delete Selected">Delete</button>
+            <button @click="$store.selection.clear()" class="link-button" style="padding: 0 10px;">Clear</button>
+          </div>
+        </template>
+        
+        <label class="button primary" style="cursor: pointer;">
+          <svg style="width: 18px; height: 18px; margin-right: 6px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          Upload
+          <input type="file" multiple accept="image/*" style="display: none;" @change="handleFiles($event.target.files)">
+        </label>
+      </div>
     </section>
 
     <!-- Global Dropzone Overlay -->
-    <div id="dropzone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 2rem; text-align: center; margin-bottom: 1rem; background: var(--surface); transition: background 0.2s;">
-      <p style="margin: 0; color: #888;">Drag and drop images here to upload.</p>
+    <div x-show="isDragging" 
+         @dragover.prevent="isDragging = true"
+         @dragleave.prevent="isDragging = false"
+         @drop.prevent="handleDrop($event)"
+         style="position: absolute; inset: 0; background: rgba(31,122,99,0.1); border: 3px dashed var(--accent); z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+      <h2 style="color: var(--accent); font-size: 2rem;">Drop files or folders to upload</h2>
     </div>
 
     <!-- Filters -->
-    <form class="filters" method="get" style="margin-bottom: 1rem;">
-      <input name="q" placeholder="Search filename, metadata..." value="{{ filters.query }}">
-      <select name="sort">
+    <form class="filters" method="get" style="margin-bottom: 1.5rem;">
+      <input name="q" placeholder="Search filename, metadata..." value="{{ filters.query }}" style="flex: 1;">
+      <select name="sort" style="width: auto;">
         <option value="newest" {% if filters.sort == "newest" %}selected{% endif %}>Newest</option>
         <option value="oldest" {% if filters.sort == "oldest" %}selected{% endif %}>Oldest</option>
       </select>
-      <button class="button small" type="submit">Apply</button>
+      <button class="button small" type="submit">Filter</button>
     </form>
 
-    <!-- Dynamic Grid -->
-    <section class="photo-grid" id="photo-grid">
+    <!-- Masonry Grid -->
+    <section class="masonry-grid" id="photo-grid" @dragover.prevent="isDragging = true">
       {% for photo in pagination.items %}
-        <article class="photo-card" data-id="{{ photo.id }}" data-ai-status="{{ photo.ai_status }}" onclick="openSidePanel({{ photo.id }})" style="position: relative; overflow: hidden; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent;">
-          <img loading="lazy" src="{{ url_for('photos.file', photo_id=photo.id, variant='thumbnail') }}" alt="{{ photo.original_filename }}" style="width: 100%; display: block; aspect-ratio: 1; object-fit: cover;">
+        <article class="masonry-item" 
+                 :class="{ 'selected': $store.selection.has({{ photo.id }}) }"
+                 data-id="{{ photo.id }}">
+                 
+          <input type="checkbox" class="select-checkbox" 
+                 :checked="$store.selection.has({{ photo.id }})"
+                 @click.stop="$store.selection.toggle({{ photo.id }}, $event)">
+                 
+          <!-- Image opens Lightbox -->
+          <img loading="lazy" src="{{ url_for('photos.file', photo_id=photo.id, variant='preview') }}" 
+               alt="{{ photo.original_filename }}" 
+               @click.stop="openLightbox({{ photo.id }}, '{{ url_for('photos.file', photo_id=photo.id, variant='original') }}')">
           
-          <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px;" class="card-badges">
-            {% if photo.ai_status == 'completed' or photo.ai_status == 'approved' %}
-              <span class="badge" title="AI Analyzed" style="background: rgba(40, 167, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">✨ AI</span>
-            {% elif photo.ai_status == 'queued' or photo.ai_status == 'analyzing' %}
-              <span class="badge ai-polling" title="AI Processing" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>
-            {% endif %}
-          </div>
-        
-          <div class="photo-meta" style="padding: 10px; background: var(--surface);">
-            <strong title="{{ photo.original_filename }}" style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">{{ photo.original_filename }}</strong>
-            <span class="status-text" style="font-size: 0.8rem; color: #888;">{{ photo.processing_status }}</span>
+          <!-- Overlay opens Side Panel -->
+          <div class="overlay" @click.stop="openPanel({{ photo.id }})">
+            <strong style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">{{ photo.original_filename }}</strong>
+            <div style="display: flex; gap: 5px; margin-top: 5px;" class="card-badges">
+            </div>
           </div>
         </article>
       {% else %}
-        <p class="empty" id="empty-state">No photos yet.</p>
+        <p class="empty" id="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 3rem; background: var(--panel); border-radius: 8px; border: 1px dashed var(--line);">No photos found. Upload some to get started.</p>
       {% endfor %}
     </section>
   </main>
 
-  <!-- Sliding Metadata Panel -->
-  <aside id="side-panel" style="width: 350px; background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; transform: translateX(100%); transition: transform 0.3s; position: absolute; right: 0; top: 0; bottom: 0; z-index: 100; box-shadow: -4px 0 15px rgba(0,0,0,0.1);">
-    <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
-      <h2 style="margin: 0; font-size: 1.2rem;">Metadata</h2>
-      <button class="button small" onclick="closeSidePanel()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+  <!-- Resizable Metadata Panel -->
+  <aside x-show="selectedPhoto" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="transform translate-x-full"
+         x-transition:enter-end="transform translate-x-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="transform translate-x-0"
+         x-transition:leave-end="transform translate-x-full"
+         style="width: 380px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; z-index: 40; flex-shrink: 0; box-shadow: var(--elevation-2);">
+    
+    <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line);">
+      <h2 style="margin: 0; font-size: 1.1rem;">Details</h2>
+      <button class="button small secondary" @click="selectedPhoto = null">&times;</button>
     </div>
-    <div id="side-panel-content" style="padding: 1rem;">
-      <p style="color: #888; text-align: center;">Select an image to view details.</p>
+    
+    <div style="flex: 1; overflow-y: auto; padding: 1.5rem;" id="panel-content">
+      <template x-if="panelLoading">
+        <div style="text-align: center; padding: 2rem;">
+          <span class="spinner" style="border-top-color: var(--accent);"></span>
+        </div>
+      </template>
+      <template x-if="!panelLoading && selectedPhotoData">
+        <form @submit.prevent="saveMetadata" class="form">
+          <img :src="selectedPhotoData.previewUrl" style="width: 100%; border-radius: 6px; margin-bottom: 14px; border: 1px solid var(--line);">
+          
+          <label>Title
+            <input type="text" x-model="selectedPhotoData.title" class="input">
+          </label>
+          <label>Description
+            <textarea x-model="selectedPhotoData.description" class="input"></textarea>
+          </label>
+          <label>Tags (comma separated)
+            <input type="text" x-model="selectedPhotoData.tags" class="input">
+          </label>
+          
+            <button type="submit" class="button primary" style="flex: 1;" :disabled="isSaving" x-text="isSaving ? 'Saving...' : 'Save'"></button>
+          </div>
+        </form>
+      </template>
     </div>
   </aside>
+
+  <!-- Lightbox -->
+  <div x-show="lightboxOpen" class="lightbox" x-transition.opacity style="display: none;">
+    <div class="controls">
+      <button class="lightbox-btn" @click="lightboxOpen = false" title="Close (Esc)">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+    <img :src="lightboxImageSrc" alt="Fullscreen Image">
+  </div>
 </div>
 
+<style>
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+.dashboard-layout { animation: fadeIn 0.3s ease-out; }
+</style>
+
 <script>
-const csrfToken = "{{ csrf_token() }}";
-let activePolls = new Set();
-let pollInterval = null;
-let currentSelectedId = null;
+function galleryApp() {
+  return {
+    isDragging: false,
+    selectedPhoto: null,
+    selectedPhotoData: null,
+    panelLoading: false,
+    isSaving: false,
+    lightboxOpen: false,
+    lightboxImageSrc: '',
+    csrfToken: '{{ csrf_token() }}',
+    init() {
+      
+      // Remove display:none from lightbox once alpine loads
+      document.querySelector('.lightbox').style.display = 'flex';
+    },
 
-// File Input & Drag and Drop Handling
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('file-input');
+    openLightbox(id, src) {
+      this.lightboxImageSrc = src;
+      this.lightboxOpen = true;
+    },
 
-dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.background = 'rgba(0,123,255,0.1)'; });
-dropzone.addEventListener('dragleave', () => dropzone.style.background = 'var(--surface)');
-dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.style.background = 'var(--surface)';
-    handleFiles(e.dataTransfer.files);
-});
-fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    openPanel(id) {
+      this.selectedPhoto = id;
+      this.panelLoading = true;
+      this.selectedPhotoData = null;
+      
+      fetch(`/api/v1/photos/${id}`)
+        .then(res => res.json())
+        .then(payload => {
+          const data = payload.data || {};
+          this.selectedPhotoData = {
+            title: (data.note && data.note.title) ? data.note.title : '',
+            description: (data.note && data.note.description) ? data.note.description : '',
+            tags: (data.tags || []).join(', '),
+            previewUrl: data.preview_url
+          };
+          this.panelLoading = false;
+        });
+    },
 
-function handleFiles(files) {
-    if (!files.length) return;
-    document.getElementById('empty-state')?.remove();
+    saveMetadata() {
+      this.isSaving = true;
+      const payload = {
+        title: this.selectedPhotoData.title,
+        description: this.selectedPhotoData.description,
+        tags: this.selectedPhotoData.tags.split(',').map(t => t.trim()).filter(t => t)
+      };
+      
+      fetch(`/photos/api/${this.selectedPhoto}/metadata`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': this.csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(res => res.json()).then(data => {
+        this.isSaving = false;
+      });
+    },
+
+
     
-    Array.from(files).forEach(file => {
-        // Create an optimistic local card for the upload
-        const tempId = 'temp_' + Math.random().toString(36).substr(2, 9);
-        const cardHtml = `
-          <article class="photo-card" id="${tempId}" style="position: relative; overflow: hidden; border-radius: 12px; border: 2px solid #007bff; opacity: 0.7;">
-            <div style="aspect-ratio: 1; background: #eee; display: flex; align-items: center; justify-content: center;">
-              <span class="spinner" style="width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></span>
-            </div>
-            <div class="photo-meta" style="padding: 10px; background: var(--surface);">
-              <strong style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">${file.name}</strong>
-              <span style="font-size: 0.8rem; color: #007bff;">Uploading...</span>
-            </div>
-          </article>
-        `;
-        document.getElementById('photo-grid').insertAdjacentHTML('afterbegin', cardHtml);
-        
-        // Upload the file via AJAX
+    handleDrop(e) {
+      this.isDragging = false;
+      this.handleFiles(e.dataTransfer.files);
+    },
+
+    handleFiles(files) {
+      if (!files.length) return;
+      // In a real SPA we would append optimistic UI cards.
+      // For simplicity in this iteration, we upload and refresh.
+      let uploaded = 0;
+      Array.from(files).forEach(file => {
         const formData = new FormData();
         formData.append('photo', file);
         
         fetch('/photos/api/upload', {
-            method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken },
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Replace temp card with actual card
-                const actualCard = `
-                  <article class="photo-card" id="card-${data.photo_id}" data-id="${data.photo_id}" data-ai-status="${data.ai_status}" onclick="openSidePanel(${data.photo_id})" style="position: relative; overflow: hidden; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
-                    <img loading="lazy" src="${data.thumbnail_url}" style="width: 100%; display: block; aspect-ratio: 1; object-fit: cover;">
-                    <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px;" class="card-badges">
-                      <span class="badge ai-polling" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>
-                    </div>
-                    <div class="photo-meta" style="padding: 10px; background: var(--surface);">
-                      <strong style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem;">${data.filename}</strong>
-                      <span class="status-text" style="font-size: 0.8rem; color: #888;">${data.processing_status}</span>
-                    </div>
-                  </article>
-                `;
-                document.getElementById(tempId).outerHTML = actualCard;
-                activePolls.add(data.photo_id);
-                startGlobalPolling();
-            } else {
-                document.getElementById(tempId).querySelector('.status-text').innerText = "Failed";
-                document.getElementById(tempId).style.borderColor = "red";
-            }
+          method: 'POST',
+          headers: { 'X-CSRFToken': this.csrfToken },
+          body: formData
+        }).then(() => {
+          uploaded++;
+          if (uploaded === files.length) window.location.reload();
         });
-    });
-}
+      });
+    },
 
-// Side Panel Logic
-function openSidePanel(photoId) {
-    currentSelectedId = photoId;
-    const panel = document.getElementById('side-panel');
-    const main = document.querySelector('.dashboard-main');
-    
-    // Highlight active card
-    document.querySelectorAll('.photo-card').forEach(c => c.style.borderColor = 'transparent');
-    const card = document.getElementById(`card-${photoId}`) || document.querySelector(`.photo-card[data-id="${photoId}"]`);
-    if(card) card.style.borderColor = 'var(--primary)';
-    
-    // Slide panel in
-    panel.style.transform = 'translateX(0)';
-    main.style.marginRight = '350px';
-    
-    // Load metadata
-    document.getElementById('side-panel-content').innerHTML = `
-      <div style="text-align: center; padding: 2rem;">
-        <span class="spinner" style="display: inline-block; width: 30px; height: 30px; border: 3px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></span>
-      </div>
-    `;
-    
-    fetch(`/photos/api/${photoId}/ai-draft`)
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('side-panel-content').innerHTML = `
-              <div style="margin-bottom: 1rem;">
-                <img src="/photos/${photoId}/file/preview" style="width: 100%; border-radius: 8px;">
-              </div>
-              <form id="metadata-form" onsubmit="saveMetadata(event)">
-                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Title
-                  <input type="text" id="meta-title" value="${data.title || ''}" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
-                </label>
-                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Description
-                  <textarea id="meta-desc" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px; height: 80px;">${data.description || ''}</textarea>
-                </label>
-                <label style="display:block; margin-bottom: 10px; font-weight: bold; font-size: 0.9rem;">Tags (comma separated)
-                  <input type="text" id="meta-tags" value="${(data.keywords || []).join(', ')}" class="input" style="width: 100%; box-sizing: border-box; margin-top: 5px;">
-                </label>
-                
-                <div style="padding: 10px; background: rgba(0,123,255,0.1); border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;">
-                  <strong>AI Context:</strong><br>
-                  Scene: ${data.scene_type || 'N/A'}<br>
-                  Confidence: ${data.confidence ? (data.confidence * 100).toFixed(0) + '%' : 'N/A'}
-                </div>
-                
-                <button type="submit" class="button primary" style="width: 100%;">Save Metadata</button>
-                <button type="button" class="button secondary" style="width: 100%; margin-top: 10px;" onclick="forceReanalyze()">✨ Re-Analyze</button>
-              </form>
-            `;
-        });
-}
 
-function closeSidePanel() {
-    document.getElementById('side-panel').style.transform = 'translateX(100%)';
-    document.querySelector('.dashboard-main').style.marginRight = '0';
-    document.querySelectorAll('.photo-card').forEach(c => c.style.borderColor = 'transparent');
-    currentSelectedId = null;
+  }
 }
-
-function saveMetadata(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.innerText = "Saving...";
-    btn.disabled = true;
-    
-    const payload = {
-        title: document.getElementById('meta-title').value,
-        description: document.getElementById('meta-desc').value,
-        tags: document.getElementById('meta-tags').value.split(',').map(t => t.trim()).filter(t => t)
-    };
-    
-    fetch(`/photos/api/${currentSelectedId}/metadata`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(res => res.json()).then(data => {
-        btn.innerText = "Saved!";
-        setTimeout(() => { btn.innerText = "Save Metadata"; btn.disabled = false; }, 2000);
-    });
-}
-
-function forceReanalyze() {
-    fetch(`/photos/api/${currentSelectedId}/analyze`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
-    }).then(res => res.json()).then(data => {
-        activePolls.add(currentSelectedId);
-        startGlobalPolling();
-        
-        // Update Card visually
-        const card = document.getElementById(`card-${currentSelectedId}`) || document.querySelector(`.photo-card[data-id="${currentSelectedId}"]`);
-        if (card) {
-            card.dataset.aiStatus = 'queued';
-            card.querySelector('.card-badges').innerHTML = '<span class="badge ai-polling" style="background: rgba(0, 123, 255, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">⏳ AI</span>';
-        }
-    });
-}
-
-// Global Polling Engine
-function startGlobalPolling() {
-    if (pollInterval) return; // already running
-    
-    // Find all cards initially that are polling
-    document.querySelectorAll('.photo-card[data-ai-status="queued"], .photo-card[data-ai-status="analyzing"]').forEach(c => {
-        activePolls.add(parseInt(c.dataset.id));
-    });
-    
-    if (activePolls.size === 0) return;
-    
-    pollInterval = setInterval(() => {
-        if (activePolls.size === 0) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-            return;
-        }
-        
-        const ids = Array.from(activePolls).join(',');
-        fetch(`/photos/api/status?ids=${ids}`)
-            .then(res => res.json())
-            .then(data => {
-                const statuses = data.statuses;
-                for (const [idStr, statusInfo] of Object.entries(statuses)) {
-                    const id = parseInt(idStr);
-                    const card = document.getElementById(`card-${id}`) || document.querySelector(`.photo-card[data-id="${id}"]`);
-                    
-                    if (card && (statusInfo.ai_status === 'completed' || statusInfo.ai_status === 'approved')) {
-                        activePolls.delete(id);
-                        card.dataset.aiStatus = 'completed';
-                        card.querySelector('.card-badges').innerHTML = '<span class="badge" style="background: rgba(40, 167, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">✨ AI</span>';
-                        
-                        // If this card is currently open in the side panel, refresh the data
-                        if (currentSelectedId === id) {
-                            openSidePanel(id); 
-                        }
-                    } else if (card && statusInfo.ai_status === 'failed') {
-                        activePolls.delete(id);
-                        card.dataset.aiStatus = 'failed';
-                        card.querySelector('.card-badges').innerHTML = '<span class="badge" style="background: rgba(220, 53, 69, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">❌ Failed</span>';
-                    }
-                }
-            });
-    }, 2500);
-}
-
-// Init polling on page load if there are queued items
-document.addEventListener("DOMContentLoaded", startGlobalPolling);
 </script>
-<style>
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-</style>
 {% endblock %}
-

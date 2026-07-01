@@ -62,6 +62,8 @@ class Photo(db.Model, TimestampMixin):
     format = db.Column(db.String(20))
     mime_type = db.Column(db.String(100), nullable=False)
     file_size = db.Column(db.Integer, nullable=False)
+    phash = db.Column(db.String(64), index=True)
+
     thumbnail_path = db.Column(db.String(500))
     preview_path = db.Column(db.String(500))
     compressed_path = db.Column(db.String(500))
@@ -77,7 +79,7 @@ class Photo(db.Model, TimestampMixin):
     deleted = db.Column(db.Boolean, default=False, nullable=False, index=True)
     visibility = db.Column(db.String(30), default="private", nullable=False)
     processing_status = db.Column(db.String(50), default="pending", nullable=False, index=True)
-    ai_status = db.Column(db.String(50), default="not_analyzed", nullable=False, index=True)
+
     histogram = db.Column(db.JSON, default=dict, nullable=False)
     blur_score = db.Column(db.Float)
     color_palette = db.Column(db.JSON, default=list, nullable=False)
@@ -101,7 +103,7 @@ class Album(db.Model, TimestampMixin):
     name = db.Column(db.String(160), nullable=False)
     description = db.Column(db.Text)
     cover_photo_id = db.Column(db.Integer, db.ForeignKey("photos.id"))
-    ai_suggested = db.Column(db.Boolean, default=False, nullable=False)
+
 
 
 class AlbumPhoto(db.Model):
@@ -122,7 +124,7 @@ class PhotoNote(db.Model, TimestampMixin):
     title = db.Column(db.String(255))
     description = db.Column(db.Text)
     personal_notes = db.Column(db.Text)
-    ai_notes = db.Column(db.Text)
+
     markdown_enabled = db.Column(db.Boolean, default=True, nullable=False)
     version = db.Column(db.Integer, default=1, nullable=False)
 
@@ -136,7 +138,7 @@ class PhotoNoteVersion(db.Model):
     title = db.Column(db.String(255))
     description = db.Column(db.Text)
     personal_notes = db.Column(db.Text)
-    ai_notes = db.Column(db.Text)
+
     version = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
 
@@ -148,7 +150,7 @@ class Tag(db.Model, TimestampMixin):
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name = db.Column(db.String(120), nullable=False)
     normalized_name = db.Column(db.String(120), nullable=False, index=True)
-    ai_generated = db.Column(db.Boolean, default=False, nullable=False)
+
     __table_args__ = (db.UniqueConstraint("owner_id", "normalized_name", name="uq_owner_tag"),)
 
 
@@ -158,7 +160,7 @@ class PhotoTag(db.Model):
     photo_id = db.Column(db.Integer, db.ForeignKey("photos.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    ai_generated = db.Column(db.Boolean, default=False, nullable=False)
+
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
 
 
@@ -179,43 +181,6 @@ class Trash(db.Model):
     deleted_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
     purge_after = db.Column(db.DateTime(timezone=True))
 
-
-class AIResult(db.Model, TimestampMixin):
-    __tablename__ = "ai_results"
-
-    id = db.Column(db.Integer, primary_key=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    photo_id = db.Column(db.Integer, db.ForeignKey("photos.id"), nullable=False, index=True)
-    status = db.Column(db.String(30), default="draft", nullable=False, index=True)
-    title = db.Column(db.String(255))
-    caption = db.Column(db.Text)
-    description = db.Column(db.Text)
-    notes = db.Column(db.Text)
-    suggested_album = db.Column(db.String(255))
-    keywords = db.Column(db.JSON, default=list, nullable=False)
-    objects = db.Column(db.JSON, default=list, nullable=False)
-    scene_type = db.Column(db.String(120))
-    environment = db.Column(db.String(120))
-    weather = db.Column(db.String(120))
-    mood = db.Column(db.String(120))
-    photography_style = db.Column(db.String(120))
-    indoor_outdoor = db.Column(db.String(40))
-    time_of_day = db.Column(db.String(80))
-    possible_event = db.Column(db.String(160))
-    ocr_text = db.Column(db.Text)
-    confidence = db.Column(db.Float, default=0.0, nullable=False)
-    raw = db.Column(db.JSON, default=dict, nullable=False)
-
-
-class Embedding(db.Model, TimestampMixin):
-    __tablename__ = "embeddings"
-
-    id = db.Column(db.Integer, primary_key=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    photo_id = db.Column(db.Integer, db.ForeignKey("photos.id"), nullable=False, index=True)
-    model_name = db.Column(db.String(120), nullable=False)
-    vector = db.Column(db.JSON, nullable=False)
-    dimension = db.Column(db.Integer, nullable=False)
 
 
 class ActivityLog(db.Model):
@@ -273,6 +238,20 @@ class AuditLog(db.Model):
     outcome = db.Column(db.String(40), nullable=False)
     log_metadata = db.Column(db.JSON, default=dict, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class ActionHistory(db.Model):
+    __tablename__ = "action_history"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    action_type = db.Column(db.String(80), nullable=False, index=True) # e.g. 'bulk_edit', 'delete'
+    target_ids = db.Column(db.JSON, nullable=False) # List of photo IDs affected
+    previous_state = db.Column(db.JSON, nullable=False) # The state before the action
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    can_undo = db.Column(db.Boolean, default=True, nullable=False)
+    undone_at = db.Column(db.DateTime(timezone=True))
+
 
 
 class PasswordResetToken(db.Model):

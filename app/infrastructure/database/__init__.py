@@ -1,13 +1,11 @@
 """Database infrastructure exports."""
 
 from .models import (
-    AIResult,
     ActivityLog,
     Album,
     AlbumPhoto,
     AuditLog,
     EmailVerificationToken,
-    Embedding,
     Favorite,
     LoginAttempt,
     PasswordResetToken,
@@ -23,13 +21,11 @@ from .models import (
 )
 
 __all__ = [
-    "AIResult",
     "ActivityLog",
     "Album",
     "AlbumPhoto",
     "AuditLog",
     "EmailVerificationToken",
-    "Embedding",
     "Favorite",
     "LoginAttempt",
     "PasswordResetToken",

@@ -64,9 +64,7 @@ class CatalogRepository:
             or 0
         )
         queue = ProcessingQueue.query.filter_by(owner_id=owner_id, status="pending").count()
-        ai_not_analyzed = Photo.query.filter_by(owner_id=owner_id, ai_status="not_analyzed", deleted=False).count()
-        from app.infrastructure.database.models import AIResult
-        ai_drafts = AIResult.query.filter_by(owner_id=owner_id, status="draft").count()
+
 
         return {
             "total_photos": int(total_photos),
@@ -74,8 +72,6 @@ class CatalogRepository:
             "albums": int(albums),
             "storage_bytes": int(storage),
             "pending_queue": int(queue),
-            "ai_not_analyzed": int(ai_not_analyzed),
-            "ai_drafts": int(ai_drafts),
         }
 
     def photo_count_in_album(self, owner_id: int, album_id: int) -> int:

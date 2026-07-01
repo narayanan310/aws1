@@ -10,7 +10,7 @@ from app.application.services.catalog_service import NoteService
 from app.application.services.photo_service import PhotoService
 from app.application.services.search_service import SearchService
 from app.domain.exceptions.domain_exceptions import ValidationError
-from app.infrastructure.database.models import AIResult, PhotoNote
+from app.infrastructure.database.models import PhotoNote
 from app.infrastructure.repositories.photo_repository import PhotoRepository
 
 photos_bp = Blueprint("photos", __name__, url_prefix="/photos")
@@ -33,35 +33,7 @@ def gallery():
     return render_template("photos/gallery.html", pagination=pagination, filters=filters)
 
 
-@photos_bp.route("/upload", methods=["GET", "POST"])
-@login_required
-def upload():
-    if request.method == "POST":
-        try:
-            uploads = request.files.getlist("photos")
-            metadata = {
-                "title": request.form.get("title", "").strip(),
-                "caption": request.form.get("caption", "").strip(),
-                "description": request.form.get("description", "").strip(),
-                "album": request.form.get("album", "").strip(),
-                "tags": [t.strip() for t in request.form.get("tags", "").split(",") if t.strip()]
-            }
-            results = PhotoService().upload_many(current_user, uploads, metadata=metadata)
-            flash(f"Uploaded {len(results)} photo(s). Workers will process them.", "success")
-            return redirect(url_for("photos.gallery"))
-        except ValidationError as exc:
-            flash(str(exc), "error")
-    return render_template("photos/upload.html")
 
-
-@photos_bp.route("/<int:photo_id>")
-@login_required
-def detail(photo_id: int):
-    photo = PhotoService().get_owned_or_404(current_user.id, photo_id)
-    ai = AIResult.query.filter_by(owner_id=current_user.id, photo_id=photo.id).first()
-    note = PhotoNote.query.filter_by(owner_id=current_user.id, photo_id=photo.id).first()
-    tags = PhotoRepository().tags_for_photo(current_user.id, photo.id)
-    return render_template("photos/detail.html", photo=photo, ai=ai, note=note, tags=tags)
 
 
 @photos_bp.route("/<int:photo_id>/file/<variant>")
@@ -116,18 +88,10 @@ def notes(photo_id: int):
         title=request.form.get("title", ""),
         description=request.form.get("description", ""),
         personal_notes=request.form.get("personal_notes", ""),
-        ai_notes=request.form.get("ai_notes", ""),
     )
     flash("Notes saved.", "success")
     return redirect(url_for("photos.detail", photo_id=photo_id))
 
-
-@photos_bp.route("/search/semantic")
-@login_required
-def semantic_search():
-    query = request.args.get("q", "")
-    results = SearchService().semantic(current_user.id, query) if query else []
-    return render_template("photos/search.html", results=results, query=query)
 
 
 def _bool_arg(name: str) -> bool | None:
@@ -136,57 +100,6 @@ def _bool_arg(name: str) -> bool | None:
         return None
     return value.lower() in {"1", "true", "yes", "on"}
 
-
-from app.application.services.ai_pipeline_service import AIPipelineService
-from app.infrastructure.database.models import ProcessingQueue
-
-@photos_bp.route("/api/<int:photo_id>/analyze", methods=["POST"])
-@login_required
-def api_analyze(photo_id: int):
-    return AIPipelineService().trigger_analysis(current_user.id, photo_id)
-
-
-@photos_bp.route("/api/analyze-batch", methods=["POST"])
-@login_required
-def api_analyze_batch():
-    data = request.get_json() or {}
-    photo_ids = data.get("photo_ids", [])
-    return AIPipelineService().trigger_batch_analysis(current_user.id, photo_ids)
-
-
-@photos_bp.route("/api/<int:photo_id>/ai-status")
-@login_required
-def api_ai_status(photo_id: int):
-    task = ProcessingQueue.query.filter_by(
-        owner_id=current_user.id, photo_id=photo_id
-    ).order_by(ProcessingQueue.created_at.desc()).first()
-    
-    if not task:
-        return {"status": "not_queued", "progress": None}
-    
-    return {"status": task.status, "task_type": task.task_type}
-
-
-@photos_bp.route("/api/<int:photo_id>/ai-draft")
-@login_required
-def api_ai_draft(photo_id: int):
-    ai = AIResult.query.filter_by(owner_id=current_user.id, photo_id=photo_id).first()
-    if not ai:
-        return {}
-        
-    raw = ai.raw or {}
-    
-    return {
-        "title": ai.title or raw.get("title", ""),
-        "caption": ai.caption or raw.get("summary", ""),
-        "description": ai.description or raw.get("description", ""),
-        "suggested_album": ai.suggested_album or "AI Suggested",
-        "keywords": ai.keywords or raw.get("searchable_keywords", []) or raw.get("tags", []),
-        "objects": ai.objects or raw.get("detected_objects", []),
-        "scene_type": ai.scene_type or raw.get("scene", ""),
-        "confidence": ai.confidence or 0.95,
-        "raw": raw
-    }
 
 
 @photos_bp.route("/api/upload", methods=["POST"])
@@ -201,8 +114,7 @@ def api_upload():
         "caption": request.form.get("caption", "").strip(),
         "description": request.form.get("description", "").strip(),
         "album": request.form.get("album", "").strip(),
-        "tags": [t.strip() for t in request.form.get("tags", "").split(",") if t.strip()],
-        "skip_ai": request.form.get("skip_ai") == "true"
+        "tags": [t.strip() for t in request.form.get("tags", "").split(",") if t.strip()]
     }
     
     try:
@@ -219,7 +131,6 @@ def api_upload():
             "photo_id": photo.id,
             "filename": photo.original_filename,
             "processing_status": photo.processing_status,
-            "ai_status": photo.ai_status,
             "thumbnail_url": url_for("photos.file", photo_id=photo.id, variant="thumbnail")
         }
     except ValidationError as exc:
@@ -243,17 +154,11 @@ def api_batch_status():
     statuses = {}
     for p in photos:
         statuses[p.id] = {
-            "processing_status": p.processing_status,
-            "ai_status": p.ai_status
+            "processing_status": p.processing_status
         }
         
     return {"statuses": statuses}
 
-@photos_bp.route("/api/<int:photo_id>/metadata", methods=["POST"])
-@login_required
-def api_update_metadata(photo_id: int):
-    payload = request.get_json() or {}
-    return AIPipelineService().update_metadata(current_user.id, photo_id, payload)
 
 
 

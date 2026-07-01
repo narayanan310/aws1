@@ -3,8 +3,6 @@
 import threading
 import time
 
-from app.workers.ai_worker import AIWorker
-from app.workers.embedding_worker import EmbeddingWorker
 from app.workers.image_worker import ImageWorker
 
 
@@ -15,7 +13,7 @@ def start_worker(worker_cls) -> None:
 
 
 def main() -> None:
-    workers = [ImageWorker, AIWorker, EmbeddingWorker]
+    workers = [ImageWorker]
     threads = []
     
     for cls in workers:

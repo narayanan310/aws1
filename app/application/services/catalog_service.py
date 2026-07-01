@@ -42,25 +42,25 @@ class AlbumService:
 class TagService:
     """Manual and AI tag operations."""
 
-    def ensure_tag(self, owner_id: int, name: str, ai_generated: bool = False) -> Tag:
+    def ensure_tag(self, owner_id: int, name: str) -> Tag:
         normalized = name.strip().lower()
         if not normalized:
             raise ValidationError("Tag name is required.")
         tag = Tag.query.filter_by(owner_id=owner_id, normalized_name=normalized).first()
         if tag:
             return tag
-        tag = Tag(owner_id=owner_id, name=name.strip(), normalized_name=normalized, ai_generated=ai_generated)
+        tag = Tag(owner_id=owner_id, name=name.strip(), normalized_name=normalized)
         db.session.add(tag)
         db.session.flush()
         return tag
 
-    def tag_photo(self, owner_id: int, photo_id: int, names: list[str], ai_generated: bool = False) -> list[Tag]:
+    def tag_photo(self, owner_id: int, photo_id: int, names: list[str]) -> list[Tag]:
         photo = PhotoRepository().get_owned(owner_id, photo_id)
         if not photo:
             raise NotFoundError("Photo not found.")
         tags: list[Tag] = []
         for name in names:
-            tag = self.ensure_tag(owner_id, name, ai_generated=ai_generated)
+            tag = self.ensure_tag(owner_id, name)
             existing = PhotoTag.query.filter_by(owner_id=owner_id, photo_id=photo_id, tag_id=tag.id).first()
             if not existing:
                 db.session.add(
@@ -68,7 +68,6 @@ class TagService:
                         owner_id=owner_id,
                         photo_id=photo_id,
                         tag_id=tag.id,
-                        ai_generated=ai_generated,
                     )
                 )
             tags.append(tag)
@@ -101,7 +100,6 @@ class NoteService:
         title: str = "",
         description: str = "",
         personal_notes: str = "",
-        ai_notes: str = "",
     ) -> PhotoNote:
         if not self.photos.get_owned(owner_id, photo_id):
             raise NotFoundError("Photo not found.")
@@ -115,7 +113,7 @@ class NoteService:
         note.title = title.strip()
         note.description = description.strip()
         note.personal_notes = personal_notes.strip()
-        note.ai_notes = ai_notes.strip()
+
         self.activity.record(
             owner_id=owner_id,
             photo_id=photo_id,
