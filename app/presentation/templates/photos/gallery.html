@@ -111,7 +111,7 @@
           <label>Tags (comma separated)
             <input type="text" x-model="selectedPhotoData.tags" class="input">
           </label>
-          
+          <div style="display: flex; gap: 8px; margin-top: 1rem;">
             <button type="submit" class="button primary" style="flex: 1;" :disabled="isSaving" x-text="isSaving ? 'Saving...' : 'Save'"></button>
           </div>
         </form>

@@ -3,21 +3,29 @@
 {% block content %}
 <section class="page-title">
   <div><p class="eyebrow">Private Photo Library</p><h1>Dashboard</h1></div>
-  <a class="button" href="{{ url_for('photos.upload') }}">Upload Photos</a>
+  <a class="button" href="{{ url_for('photos.gallery') }}">Go to Library</a>
 </section>
 <section class="stats">
   <article><strong>{{ summary.stats.total_photos }}</strong><span>Photos</span></article>
   <article><strong>{{ summary.stats.favorites }}</strong><span>Favorites</span></article>
-
   <article><strong>{{ summary.stats.albums }}</strong><span>Albums</span></article>
   <article><strong>{{ summary.stats.pending_queue }}</strong><span>Queued Jobs</span></article>
 </section>
 <h2>Recent Uploads</h2>
 <section class="photo-grid">
   {% for photo in recent %}
-    {% include "photos/_card.html" %}
+    <article class="photo-card">
+      <a href="{{ url_for('photos.gallery') }}">
+        {% if photo.thumbnail_path %}
+          <img src="{{ url_for('photos.file', photo_id=photo.id, variant='thumbnail') }}" alt="{{ photo.original_filename }}" loading="lazy">
+        {% else %}
+          <div style="width:100%;height:120px;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.8rem;">Processing…</div>
+        {% endif %}
+      </a>
+      <p style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0;">{{ photo.original_filename }}</p>
+    </article>
   {% else %}
-    <p class="empty">No photos yet.</p>
+    <p class="empty">No photos yet. <a href="{{ url_for('photos.gallery') }}">Upload some!</a></p>
   {% endfor %}
 </section>
 <h2>Recent Activity</h2>

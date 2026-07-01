@@ -83,6 +83,24 @@ class TagService:
         db.session.commit()
         return tag
 
+    def set_tags(self, owner_id: int, photo_id: int, names: list[str]) -> list[Tag]:
+        """Replace all tags for a photo with a new set of tags (atomic replace)."""
+        # Delete existing tags for this photo
+        PhotoTag.query.filter_by(owner_id=owner_id, photo_id=photo_id).delete()
+        db.session.flush()
+        # Add the new tags
+        tags: list[Tag] = []
+        for name in names:
+            name = name.strip()
+            if not name:
+                continue
+            tag = self.ensure_tag(owner_id, name)
+            db.session.add(PhotoTag(owner_id=owner_id, photo_id=photo_id, tag_id=tag.id))
+            tags.append(tag)
+        db.session.commit()
+        return tags
+
+
 
 class NoteService:
     """Photo note operations with version history."""

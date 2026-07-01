@@ -267,3 +267,67 @@ textarea { min-height: 120px; resize: vertical; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Dashboard Stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stats article {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: box-shadow var(--transition), transform var(--transition), background-color var(--transition);
+}
+.stats article:hover { transform: translateY(-2px); box-shadow: var(--elevation-1); }
+.stats strong { display: block; font-size: 2rem; font-weight: 900; color: var(--accent); }
+.stats span { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+
+/* Eyebrow label */
+.eyebrow { color: var(--accent); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 4px; }
+
+/* Activity log */
+.activity { border-left: 3px solid var(--line); padding: 6px 12px; margin: 4px 0; font-size: 0.9rem; color: var(--muted); }
+.activity strong { color: var(--ink); }
+
+/* Empty state */
+.empty { color: var(--muted); text-align: center; padding: 2rem; font-size: 0.95rem; }
+
+/* Photo Grid (Dashboard recent uploads) */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.photo-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.photo-card:hover { transform: translateY(-2px); box-shadow: var(--elevation-1); }
+.photo-card img { width: 100%; height: 120px; object-fit: cover; display: block; }
+
+/* Album List */
+.album-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+
+/* Compact form */
+.form.compact { grid-template-columns: 1fr auto; align-items: start; gap: 10px; }
+
+/* Filters Bar */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.filters input, .filters select { min-height: 38px; padding: 6px 10px; }
+
+/* Input utility class */
+.input { width: 100%; }

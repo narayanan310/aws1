@@ -40,7 +40,6 @@ class CatalogRepository:
                 title=note.title,
                 description=note.description,
                 personal_notes=note.personal_notes,
-                ai_notes=note.ai_notes,
                 version=note.version,
             )
         )

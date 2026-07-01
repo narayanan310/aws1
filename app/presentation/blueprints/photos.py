@@ -90,7 +90,7 @@ def notes(photo_id: int):
         personal_notes=request.form.get("personal_notes", ""),
     )
     flash("Notes saved.", "success")
-    return redirect(url_for("photos.detail", photo_id=photo_id))
+    return redirect(url_for("photos.gallery"))
 
 
 
@@ -160,5 +160,21 @@ def api_batch_status():
     return {"statuses": statuses}
 
 
-
-
+@photos_bp.route("/api/<int:photo_id>/metadata", methods=["POST"])
+@login_required
+def api_save_metadata(photo_id: int):
+    """JSON endpoint used by the gallery side-panel to save title, description and tags."""
+    payload = request.get_json(silent=True) or {}
+    NoteService().upsert(
+        current_user.id,
+        photo_id,
+        title=payload.get("title", ""),
+        description=payload.get("description", ""),
+        personal_notes=payload.get("personal_notes", ""),
+    )
+    # Handle tags if provided
+    raw_tags = payload.get("tags", [])
+    if isinstance(raw_tags, list):
+        from app.application.services.catalog_service import TagService
+        TagService().set_tags(current_user.id, photo_id, raw_tags)
+    return {"status": "ok"}

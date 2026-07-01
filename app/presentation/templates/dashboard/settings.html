@@ -7,31 +7,29 @@
     <button class="button primary" onclick="saveSettings()" id="save-btn">Save Preferences</button>
   </div>
   
-  <div class="settings-grid" style="display: grid; grid-template-columns: 250px 1fr; gap: 2rem;">
+  <div class="settings-grid" style="display: grid; grid-template-columns: 220px 1fr; gap: 2rem;">
     <!-- Sidebar -->
-    <aside style="border-right: 1px solid var(--line); padding-right: 1rem;">
-      <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 10px;">
-
-        <li><a href="#upload" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Upload Behavior</a></li>
-        <li><a href="#interface" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Interface</a></li>
-        <li><a href="#metadata" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Metadata</a></li>
-        <li><a href="#performance" class="settings-link" style="display: block; padding: 10px; border-radius: 6px; font-weight: 600;">Performance & Advanced</a></li>
+    <aside style="border-right: 1px solid var(--line); padding-right: 1.5rem;">
+      <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 6px;">
+        <li><a href="#upload" class="settings-link active" style="display: block; padding: 10px 12px; border-radius: 6px; font-weight: 600; color: var(--accent); background: var(--success-bg);">Upload</a></li>
+        <li><a href="#interface" class="settings-link" style="display: block; padding: 10px 12px; border-radius: 6px; font-weight: 600; color: var(--muted);">Interface</a></li>
+        <li><a href="#metadata" class="settings-link" style="display: block; padding: 10px 12px; border-radius: 6px; font-weight: 600; color: var(--muted);">Metadata</a></li>
+        <li><a href="#advanced" class="settings-link" style="display: block; padding: 10px 12px; border-radius: 6px; font-weight: 600; color: var(--muted);">Advanced</a></li>
       </ul>
     </aside>
 
     <!-- Content -->
     <div class="settings-content" id="settings-form">
 
-
-      <!-- Upload Section -->
-      <div id="upload" class="settings-section" style="display: none;">
+      <!-- Upload Section (visible by default) -->
+      <div id="upload" class="settings-section">
         <h2>Upload Behavior</h2>
         <div class="form">
           <label>Maximum Concurrent Uploads
-            <input type="number" id="set-up-concurrent" value="5" class="input">
+            <input type="number" id="set-up-concurrent" value="5" min="1" max="20" class="input">
           </label>
-          <label class="check"><input type="checkbox" id="set-up-compress" checked> Compress images before upload</label>
-          <label class="check"><input type="checkbox" id="set-up-preserve-exif" checked> Preserve Original EXIF Metadata</label>
+          <label class="check"><input type="checkbox" id="set-up-compress" checked> Compress images on upload (reduces storage)</label>
+          <label class="check"><input type="checkbox" id="set-up-preserve-exif" checked> Preserve original EXIF metadata</label>
         </div>
       </div>
       
@@ -41,11 +39,18 @@
         <div class="form">
           <label>Default View Mode
             <select id="set-ui-view">
-              <option value="grid">Grid</option>
+              <option value="grid">Grid (Masonry)</option>
               <option value="list">List</option>
             </select>
           </label>
-          <label class="check"><input type="checkbox" id="set-ui-animations" checked> Enable UI Animations</label>
+          <label>Gallery Items Per Page
+            <select id="set-ui-per-page">
+              <option value="24">24</option>
+              <option value="48">48</option>
+              <option value="96">96</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="set-ui-animations" checked> Enable UI animations and transitions</label>
         </div>
       </div>
       
@@ -53,25 +58,25 @@
       <div id="metadata" class="settings-section" style="display: none;">
         <h2>Metadata</h2>
         <div class="form">
-          <label>Default Category/Album
+          <label>Default Album for New Uploads
             <input type="text" id="set-meta-category" class="input" placeholder="e.g. Uncategorized">
           </label>
-          <label class="check"><input type="checkbox" id="set-meta-merge-tags" checked> Merge AI tags with user tags</label>
-          <label class="check"><input type="checkbox" id="set-meta-preserve-desc" checked> Preserve user descriptions</label>
+          <label class="check"><input type="checkbox" id="set-meta-preserve-desc" checked> Preserve user descriptions when re-editing</label>
+          <label class="check"><input type="checkbox" id="set-meta-auto-tag" checked> Auto-apply tags from filename</label>
         </div>
       </div>
       
-      <!-- Performance Section -->
-      <div id="performance" class="settings-section" style="display: none;">
-        <h2>Performance & Advanced</h2>
+      <!-- Advanced Section -->
+      <div id="advanced" class="settings-section" style="display: none;">
+        <h2>Advanced</h2>
         <div class="form">
-          <label>Number of AI Background Workers
-            <input type="number" id="set-perf-workers" value="2" class="input">
-          </label>
-          <label class="check"><input type="checkbox" id="set-perf-gpu" checked> Enable GPU Acceleration</label>
-          <label class="check"><input type="checkbox" id="set-perf-debug"> Enable Debug Logging</label>
-          
-
+          <label class="check"><input type="checkbox" id="set-adv-debug"> Enable verbose debug logging</label>
+          <label class="check"><input type="checkbox" id="set-adv-show-hidden"> Show archived photos in default gallery view</label>
+        </div>
+        <div style="margin-top: 2rem; padding: 1rem; background: var(--danger-bg); border-radius: var(--radius); border: 1px solid var(--danger);">
+          <h3 style="margin: 0 0 8px; color: var(--danger); font-size: 1rem;">Danger Zone</h3>
+          <p style="margin: 0 0 12px; font-size: 0.9rem; color: var(--muted);">These actions cannot be undone.</p>
+          <button class="button danger small" onclick="alert('Feature coming soon.')">Clear All Cached Thumbnails</button>
         </div>
       </div>
 
@@ -80,19 +85,21 @@
 </section>
 
 <script>
-  // Tab Switching logic
+  // Tab Switching
   document.querySelectorAll('.settings-link').forEach(link => {
     link.addEventListener('click', e => {
       e.preventDefault();
       document.querySelectorAll('.settings-link').forEach(l => {
         l.classList.remove('active');
-        l.style.color = 'inherit';
+        l.style.color = 'var(--muted)';
+        l.style.background = 'transparent';
       });
       document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
-      
       e.target.classList.add('active');
       e.target.style.color = 'var(--accent)';
-      document.querySelector(e.target.getAttribute('href')).style.display = 'block';
+      e.target.style.background = 'var(--success-bg)';
+      const target = document.querySelector(e.target.getAttribute('href'));
+      if (target) target.style.display = 'block';
     });
   });
 
@@ -106,38 +113,25 @@
     }
   }
 
-  // Save settings
   function saveSettings() {
     const btn = document.getElementById('save-btn');
     const originalText = btn.innerText;
-    btn.innerText = "Saving...";
+    btn.innerText = 'Saving...';
     btn.disabled = true;
-
     const payload = {};
     document.querySelectorAll('#settings-form input, #settings-form select').forEach(el => {
       if (!el.id) return;
       if (el.type === 'checkbox') payload[el.id] = el.checked;
       else payload[el.id] = el.value;
     });
-
     fetch('{{ url_for("dashboard.settings") }}', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': '{{ csrf_token() }}'
-      },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
       body: JSON.stringify(payload)
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.status === 'success') {
-        btn.innerText = "Saved Successfully!";
-        setTimeout(() => {
-          btn.innerText = originalText;
-          btn.disabled = false;
-        }, 2000);
-      }
-    });
+    }).then(r => r.json()).then(data => {
+      btn.innerText = data.status === 'success' ? '✓ Saved!' : 'Error!';
+      setTimeout(() => { btn.innerText = originalText; btn.disabled = false; }, 2000);
+    }).catch(() => { btn.innerText = 'Error!'; btn.disabled = false; });
   }
 </script>
 {% endblock %}
