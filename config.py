@@ -1,5 +1,5 @@
 """Environment-specific configuration for the photo manager."""
-
+#config.py
 from __future__ import annotations
 
 import os
@@ -42,6 +42,13 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'fallback_secret_key'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB max upload
 
 
 class TestingConfig(BaseConfig):
