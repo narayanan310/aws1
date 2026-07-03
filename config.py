@@ -49,7 +49,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB max upload
-
+    S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
+    S3_REGION = os.environ.get('S3_REGION', 'us-east-1')
 
 class TestingConfig(BaseConfig):
     TESTING = True
