@@ -57,5 +57,3 @@ logs/
 uploads/
 tmp/
 scratch/
-*.log
-*.pkg

@@ -1,5 +1,5 @@
 """Run all background workers continuously."""
-#run_workers.py
+
 import threading
 import time
 

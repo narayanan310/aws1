@@ -8,8 +8,6 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from loguru import logger
-import boto3
-from flask import current_app
 
 from app.domain.entities.enums import PhotoStatus
 from app.extensions import db
@@ -68,39 +66,8 @@ class ImageProcessingService:
         photo.color_palette = palette
         photo.dominant_colors = palette[:5]
         photo.processing_status = PhotoStatus.PROCESSED.value
-        
-        # upload to S3 if configured
-        if current_app.config.get('S3_BUCKET_NAME'):
-            s3_orig = self._upload_to_s3(source, user.uuid, "original")
-            if s3_orig:
-                photo.original_path = s3_orig
-            s3_prev = self._upload_to_s3(preview_path, user.uuid, "preview")
-            if s3_prev:
-                photo.preview_path = s3_prev
-            s3_thumb = self._upload_to_s3(thumbnail_path, user.uuid, "thumbnail")
-            if s3_thumb:
-                photo.thumbnail_path = s3_thumb
-            s3_comp = self._upload_to_s3(compressed_path, user.uuid, "compressed")
-            if s3_comp:
-                photo.compressed_path = s3_comp
-                
         logger.bind(channel="processing").info("Processed photo {}", photo.uuid)
         return photo
-
-    def _upload_to_s3(self, path: Path, user_uuid: str, kind: str) -> str | None:
-        bucket = current_app.config.get('S3_BUCKET_NAME')
-        if not bucket:
-            return None
-        region = current_app.config.get('S3_REGION', 'us-east-1')
-        s3_client = boto3.client('s3', region_name=region)
-        s3_key = f"users/{user_uuid}/{kind}/{path.name}"
-        content_type = "image/jpeg"
-        if kind == "original":
-            import mimetypes
-            content_type = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-        with open(path, 'rb') as f:
-            s3_client.upload_fileobj(f, bucket, s3_key, ExtraArgs={"ContentType": content_type})
-        return f"https://{bucket}.s3.{region}.amazonaws.com/{s3_key}"
 
     def _extract_exif(self, image: Image.Image) -> dict:
         exif = image.getexif()

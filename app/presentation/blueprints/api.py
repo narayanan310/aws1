@@ -11,8 +11,6 @@ from app.application.services.photo_service import PhotoService
 from app.application.services.search_service import SearchService
 from app.infrastructure.database.models import PhotoNote
 from app.infrastructure.repositories.photo_repository import PhotoRepository
-from app.extensions import db
-from app.infrastructure.database.models import Photo
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -115,23 +113,4 @@ def _bool_arg(name: str) -> bool | None:
     if value is None or value == "":
         return None
     return value.lower() in {"1", "true", "yes", "on"}
-
-@api_bp.route('/internal/worker-complete', methods=['POST'])
-def worker_complete():
-    """Webhook triggered by AWS Lambda when thumbnail generation finishes."""
-    filename = request.form.get('filename')
-    
-    if not filename:
-        return jsonify({"error": "Missing filename"}), 400
-        
-    # Find the photo in the database
-    photo = Photo.query.filter_by(stored_filename=filename).first()
-    if photo:
-        # Update status to complete!
-        photo.processing_status = 'completed'
-        db.session.commit()
-        return jsonify({"status": "Database updated successfully"}), 200
-        
-    return jsonify({"error": "Photo not found"}), 404
-
 

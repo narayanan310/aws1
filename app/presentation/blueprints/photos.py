@@ -40,8 +40,6 @@ def gallery():
 @login_required
 def file(photo_id: int, variant: str):
     path = PhotoService().authorized_file_path(current_user.id, photo_id, variant)
-    if str(path).startswith("http"):
-        return redirect(str(path))
     return send_file(path)
 
 
@@ -49,8 +47,6 @@ def file(photo_id: int, variant: str):
 @login_required
 def download(photo_id: int):
     path = PhotoService().authorized_file_path(current_user.id, photo_id, "original")
-    if str(path).startswith("http"):
-        return redirect(str(path))
     return send_file(path, as_attachment=True)
 
 
